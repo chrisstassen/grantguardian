@@ -173,7 +173,14 @@ export default function DashboardPage() {
                   <tbody>
                     {grants.map((grant) => (
                       <tr key={grant.id} className="border-b border-slate-100 hover:bg-slate-50">
-                        <td className="py-4 font-medium text-slate-900">{grant.grant_name}</td>
+                        <td className="py-4 font-medium text-slate-900">
+                            <a 
+                            href={`/grants/${grant.id}`} 
+                            className="hover:text-blue-600 hover:underline cursor-pointer"
+                            >
+                            {grant.grant_name}
+                            </a>
+                        </td>
                         <td className="py-4 text-slate-600">{grant.funding_agency}</td>
                         <td className="py-4 text-slate-900">{formatCurrency(grant.award_amount)}</td>
                         <td className="py-4 text-slate-600 text-sm">
