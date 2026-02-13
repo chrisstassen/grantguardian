@@ -41,50 +41,63 @@ export function AddGrantDialog({ onGrantAdded }: AddGrantDialogProps) {
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
+  e.preventDefault()
+  setLoading(true)
 
-    const { data: { user } } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
 
-    if (!user) {
-      alert('You must be logged in to add a grant')
-      setLoading(false)
-      return
-    }
-
-    const { error } = await supabase.from('grants').insert([
-      {
-        user_id: user.id,
-        grant_name: formData.grant_name,
-        funding_agency: formData.funding_agency,
-        program_type: formData.program_type || null,
-        award_number: formData.award_number || null,
-        award_amount: formData.award_amount ? parseFloat(formData.award_amount) : null,
-        period_start: formData.period_start || null,
-        period_end: formData.period_end || null,
-        status: formData.status
-      }
-    ])
-
+  if (!user) {
+    alert('You must be logged in to add a grant')
     setLoading(false)
-
-    if (error) {
-      alert('Error adding grant: ' + error.message)
-    } else {
-      setOpen(false)
-      setFormData({
-        grant_name: '',
-        funding_agency: '',
-        program_type: '',
-        award_number: '',
-        award_amount: '',
-        period_start: '',
-        period_end: '',
-        status: 'active'
-      })
-      onGrantAdded()
-    }
+    return
   }
+
+  // Get user's organization
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('organization_id')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile?.organization_id) {
+    alert('No organization found')
+    setLoading(false)
+    return
+  }
+
+  const { error } = await supabase.from('grants').insert([
+    {
+      organization_id: profile.organization_id,
+      grant_name: formData.grant_name,
+      funding_agency: formData.funding_agency,
+      program_type: formData.program_type || null,
+      award_number: formData.award_number || null,
+      award_amount: formData.award_amount ? parseFloat(formData.award_amount) : null,
+      period_start: formData.period_start || null,
+      period_end: formData.period_end || null,
+      status: formData.status
+    }
+  ])
+
+  setLoading(false)
+
+  if (error) {
+    alert('Error adding grant: ' + error.message)
+  } else {
+    setOpen(false)
+    setFormData({
+      grant_name: '',
+      funding_agency: '',
+      program_type: '',
+      award_number: '',
+      award_amount: '',
+      period_start: '',
+      period_end: '',
+      status: 'active'
+    })
+    onGrantAdded()
+  }
+}
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

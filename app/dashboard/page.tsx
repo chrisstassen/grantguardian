@@ -21,7 +21,9 @@ export default function DashboardPage() {
   const [user, setUser] = useState<any>(null)
   const [grants, setGrants] = useState<Grant[]>([])
   const [loading, setLoading] = useState(true)
-  const router = useRouter()
+  const [userProfile, setUserProfile] = useState<any>(null)
+  const [organizationName, setOrganizationName] = useState('')
+  const router = useRouter() 
 
   const loadGrants = async () => {
     const { data, error } = await supabase
@@ -38,16 +40,31 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      
-      if (!user) {
-        router.push('/login')
-      } else {
-        setUser(user)
-        await loadGrants()
-        setLoading(false)
-      }
-    }
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  if (!user) {
+    router.push('/login')
+    return
+  }
+
+  // Check if user has an organization and get profile info
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('organization_id, role, first_name, last_name, organizations(name)')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile || !profile.organization_id) {
+    router.push('/onboarding')
+    return
+  }
+
+  setUser(user)
+  setUserProfile(profile)
+  setOrganizationName((profile as any).organizations?.name || '')
+  await loadGrants()
+  setLoading(false)
+}
 
     checkUser()
   }, [router])
@@ -88,20 +105,24 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-slate-50">
       <header className="bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-slate-900">GrantGuardian</h1>
-          <Button onClick={handleSignOut} variant="outline">
+            <h1 className="text-2xl font-bold text-slate-900">
+              GrantGuardian{organizationName ? `: ${organizationName}` : ''}
+            </h1>
+            <Button onClick={handleSignOut} variant="outline">
             Sign Out
-          </Button>
+            </Button>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8 flex justify-between items-center">
-          <div>
-            <h2 className="text-3xl font-bold text-slate-900">Dashboard</h2>
-            <p className="text-slate-600 mt-2">Welcome back, {user?.email}</p>
-          </div>
-          <AddGrantDialog onGrantAdded={loadGrants} />
+            <div>
+                <h2 className="text-3xl font-bold text-slate-900">Dashboard</h2>
+                <p className="text-slate-600 mt-2">
+                Welcome back, {userProfile?.first_name || user?.email}
+                </p>
+            </div>
+            <AddGrantDialog onGrantAdded={loadGrants} />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
