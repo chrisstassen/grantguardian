@@ -41,20 +41,36 @@ export default function GrantDetailsPage() {
   const [loading, setLoading] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [userRole, setUserRole] = useState<string>('')
 
   const loadGrant = async () => {
+    // Get user's role
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (user) {
+        const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+        
+        if (profile) {
+        setUserRole(profile.role)
+        }
+    }
+
     const { data, error } = await supabase
-      .from('grants')
-      .select('*')
-      .eq('id', params.id)
-      .single()
+        .from('grants')
+        .select('*')
+        .eq('id', params.id)
+        .single()
 
     if (error) {
-      console.error('Error loading grant:', error)
-      router.push('/dashboard')
+        console.error('Error loading grant:', error)
+        router.push('/dashboard')
     } else {
-      setGrant(data)
-      setLoading(false)
+        setGrant(data)
+        setLoading(false)
     }
   }
 
@@ -126,38 +142,40 @@ export default function GrantDetailsPage() {
               <h1 className="text-3xl font-bold text-slate-900">{grant.grant_name}</h1>
               <p className="text-slate-600 mt-1">{grant.funding_agency}</p>
             </div>
+            {userRole !== 'viewer' && (
             <div className="flex gap-2">
-              <Button onClick={() => setEditOpen(true)} variant="outline">
+                <Button onClick={() => setEditOpen(true)} variant="outline">
                 <Pencil className="h-4 w-4 mr-2" />
                 Edit
-              </Button>
-              <AlertDialog>
+                </Button>
+                <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="destructive">
+                    <Button variant="destructive">
                     <Trash2 className="h-4 w-4 mr-2" />
                     Delete
-                  </Button>
+                    </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
-                  <AlertDialogHeader>
+                    <AlertDialogHeader>
                     <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will permanently delete this grant and all associated data. This action cannot be undone.
+                        This will permanently delete this grant and all associated data. This action cannot be undone.
                     </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction 
-                      onClick={handleDelete}
-                      disabled={deleting}
-                      className="bg-red-600 hover:bg-red-700"
+                        onClick={handleDelete}
+                        disabled={deleting}
+                        className="bg-red-600 hover:bg-red-700"
                     >
-                      {deleting ? 'Deleting...' : 'Delete Grant'}
+                        {deleting ? 'Deleting...' : 'Delete Grant'}
                     </AlertDialogAction>
-                  </AlertDialogFooter>
+                    </AlertDialogFooter>
                 </AlertDialogContent>
-              </AlertDialog>
+                </AlertDialog>
             </div>
+            )}
           </div>
         </div>
       </header>

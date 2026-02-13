@@ -54,14 +54,19 @@ export default function LoginPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+                <Label htmlFor="password">Password</Label>
+                <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                />
+                <div className="text-right">
+                    <a href="/reset-password" className="text-sm text-blue-600 hover:underline">
+                    Forgot password?
+                    </a>
+                </div>
             </div>
             {error && (
               <p className="text-sm text-red-600">{error}</p>

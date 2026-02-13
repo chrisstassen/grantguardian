@@ -23,6 +23,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [userProfile, setUserProfile] = useState<any>(null)
   const [organizationName, setOrganizationName] = useState('')
+  const [isAdmin, setIsAdmin] = useState(false)
   const router = useRouter() 
 
   const loadGrants = async () => {
@@ -62,6 +63,7 @@ export default function DashboardPage() {
   setUser(user)
   setUserProfile(profile)
   setOrganizationName((profile as any).organizations?.name || '')
+  setIsAdmin(profile.role === 'admin')
   await loadGrants()
   setLoading(false)
 }
@@ -106,11 +108,21 @@ export default function DashboardPage() {
       <header className="bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
             <h1 className="text-2xl font-bold text-slate-900">
-              GrantGuardian{organizationName ? `: ${organizationName}` : ''}
+            GrantGuardian{organizationName ? `: ${organizationName}` : ''}
             </h1>
-            <Button onClick={handleSignOut} variant="outline">
-            Sign Out
+            <div className="flex gap-2">
+            {isAdmin && (
+                <Button onClick={() => router.push('/settings')} variant="outline">
+                Settings
+                </Button>
+            )}
+            <Button onClick={() => router.push('/profile')} variant="outline">
+                Profile
             </Button>
+            <Button onClick={handleSignOut} variant="outline">
+                Sign Out
+            </Button>
+            </div>
         </div>
       </header>
 
@@ -122,7 +134,9 @@ export default function DashboardPage() {
                 Welcome back, {userProfile?.first_name || user?.email}
                 </p>
             </div>
-            <AddGrantDialog onGrantAdded={loadGrants} />
+            {userProfile?.role !== 'viewer' && (
+                <AddGrantDialog onGrantAdded={loadGrants} />
+            )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
