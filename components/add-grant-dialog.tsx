@@ -37,8 +37,10 @@ export function AddGrantDialog({ onGrantAdded }: AddGrantDialogProps) {
     award_amount: '',
     period_start: '',
     period_end: '',
-    status: 'active'
+    status: 'pending'
   })
+  const [awardLetterFile, setAwardLetterFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault()
@@ -60,9 +62,32 @@ export function AddGrantDialog({ onGrantAdded }: AddGrantDialogProps) {
     .single()
 
   if (!profile?.organization_id) {
-    alert('No organization found')
+    alert('You must be part of an organization to add grants')
     setLoading(false)
     return
+  }
+
+  let awardLetterUrl = null
+  let awardLetterName = null
+
+  // Upload award letter if selected
+  if (awardLetterFile) {
+    setUploading(true)
+    const fileName = awardLetterFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+    const filePath = `${profile.organization_id}/${Date.now()}_${fileName}`
+    
+    const { error: uploadError } = await supabase.storage
+      .from('award-letters')
+      .upload(filePath, awardLetterFile)
+
+    if (uploadError) {
+      console.error('Error uploading award letter:', uploadError)
+      alert('Error uploading award letter. Continuing without it.')
+    } else {
+      awardLetterUrl = filePath
+      awardLetterName = awardLetterFile.name
+    }
+    setUploading(false)
   }
 
   const { error } = await supabase.from('grants').insert([
@@ -75,7 +100,9 @@ export function AddGrantDialog({ onGrantAdded }: AddGrantDialogProps) {
       award_amount: formData.award_amount ? parseFloat(formData.award_amount) : null,
       period_start: formData.period_start || null,
       period_end: formData.period_end || null,
-      status: formData.status
+      status: formData.status,
+      award_letter_url: awardLetterUrl,
+      award_letter_name: awardLetterName
     }
   ])
 
@@ -93,8 +120,9 @@ export function AddGrantDialog({ onGrantAdded }: AddGrantDialogProps) {
       award_amount: '',
       period_start: '',
       period_end: '',
-      status: 'active'
+      status: 'pending'
     })
+    setAwardLetterFile(null)
     onGrantAdded()
   }
 }
@@ -211,6 +239,24 @@ export function AddGrantDialog({ onGrantAdded }: AddGrantDialogProps) {
                 <SelectItem value="closed">Closed</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="award_letter">Award Letter (Optional)</Label>
+            <Input
+              id="award_letter"
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+              onChange={(e) => setAwardLetterFile(e.target.files?.[0] || null)}
+            />
+            <p className="text-xs text-slate-500">
+              Upload the official award letter. We'll use AI to extract compliance requirements.
+            </p>
+            {awardLetterFile && (
+              <p className="text-sm text-slate-600">
+                📄 {awardLetterFile.name}
+              </p>
+            )}
           </div>
 
           <div className="flex justify-end gap-2 pt-4">

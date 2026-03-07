@@ -15,6 +15,8 @@ interface Grant {
   period_start: string | null
   period_end: string | null
   status: string
+  total_expenses?: number
+  balance?: number
 }
 
 export default function DashboardPage() {
@@ -26,18 +28,37 @@ export default function DashboardPage() {
   const [isAdmin, setIsAdmin] = useState(false)
   const router = useRouter() 
 
-  const loadGrants = async () => {
-    const { data, error } = await supabase
-      .from('grants')
-      .select('*')
-      .order('created_at', { ascending: false })
+const loadGrants = async () => {
+  const { data: grantsData, error: grantsError } = await supabase
+    .from('grants')
+    .select('*')
+    .order('created_at', { ascending: false })
 
-    if (error) {
-      console.error('Error loading grants:', error)
-    } else {
-      setGrants(data || [])
-    }
+  if (grantsError) {
+    console.error('Error loading grants:', grantsError)
+    return
   }
+
+  // Load expenses for each grant
+  const grantsWithExpenses = await Promise.all(
+    (grantsData || []).map(async (grant) => {
+      const { data: expenses } = await supabase
+        .from('expenses')
+        .select('amount')
+        .eq('grant_id', grant.id)
+      
+      const totalExpenses = expenses?.reduce((sum, exp) => sum + parseFloat(exp.amount), 0) || 0
+      
+      return {
+        ...grant,
+        total_expenses: totalExpenses,
+        balance: (grant.award_amount || 0) - totalExpenses
+      }
+    })
+  )
+
+  setGrants(grantsWithExpenses)
+}
 
   useEffect(() => {
     const checkUser = async () => {
@@ -77,12 +98,12 @@ export default function DashboardPage() {
   }
 
   const formatCurrency = (amount: number | null) => {
-    if (!amount) return '-'
+    if (!amount) return '$0.00'
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     }).format(amount)
   }
 
@@ -201,6 +222,8 @@ export default function DashboardPage() {
                       <th className="pb-3 font-medium">Grant Name</th>
                       <th className="pb-3 font-medium">Agency</th>
                       <th className="pb-3 font-medium">Award Amount</th>
+                      <th className="pb-3 font-medium">Expended</th>
+                      <th className="pb-3 font-medium">Balance</th>
                       <th className="pb-3 font-medium">Performance Period</th>
                       <th className="pb-3 font-medium">Status</th>
                     </tr>
@@ -209,15 +232,19 @@ export default function DashboardPage() {
                     {grants.map((grant) => (
                       <tr key={grant.id} className="border-b border-slate-100 hover:bg-slate-50">
                         <td className="py-4 font-medium text-slate-900">
-                            <a 
+                          <a 
                             href={`/grants/${grant.id}`} 
                             className="hover:text-blue-600 hover:underline cursor-pointer"
-                            >
+                          >
                             {grant.grant_name}
-                            </a>
+                          </a>
                         </td>
                         <td className="py-4 text-slate-600">{grant.funding_agency}</td>
                         <td className="py-4 text-slate-900">{formatCurrency(grant.award_amount)}</td>
+                        <td className="py-4 text-blue-600 font-medium">{formatCurrency(grant.total_expenses || 0)}</td>
+                        <td className={`py-4 font-medium ${(grant.balance || 0) < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          {formatCurrency(grant.balance || 0)}
+                        </td>
                         <td className="py-4 text-slate-600 text-sm">
                           {formatDate(grant.period_start)} - {formatDate(grant.period_end)}
                         </td>
