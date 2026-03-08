@@ -457,29 +457,31 @@ export default function GrantDetailsPage() {
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs defaultValue="summary" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-6">
-            <TabsTrigger value="summary">Summary</TabsTrigger>
-            <TabsTrigger value="special-conditions">
-              Special Conditions
-              {specialConditions.length > 0 && (
-                <Badge variant="destructive" className="ml-2">{specialConditions.length}</Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="requirements">
-              Requirements
-              {overdueRequirements.length > 0 && (
-                <Badge variant="destructive" className="ml-2">{overdueRequirements.length}</Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="expenses">
-              Expenses
-              <Badge variant="secondary" className="ml-2">{expenses.length}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="payments">
-              Payments
-              <Badge variant="secondary" className="ml-2">{payments.length}</Badge>
-            </TabsTrigger>
-          </TabsList>
+          <div className="mb-6 overflow-x-auto">
+            <TabsList className="inline-flex w-full min-w-max lg:grid lg:grid-cols-5 lg:w-full">
+              <TabsTrigger value="summary" className="flex-1 whitespace-nowrap">Summary</TabsTrigger>
+              <TabsTrigger value="special-conditions" className="flex-1 whitespace-nowrap">
+                Special Conditions
+                {specialConditions.length > 0 && (
+                  <Badge variant="destructive" className="ml-2">{specialConditions.length}</Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="requirements" className="flex-1 whitespace-nowrap">
+                Requirements
+                {overdueRequirements.length > 0 && (
+                  <Badge variant="destructive" className="ml-2">{overdueRequirements.length}</Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="expenses" className="flex-1 whitespace-nowrap">
+                Expenses
+                <Badge variant="secondary" className="ml-2">{expenses.length}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="payments" className="flex-1 whitespace-nowrap">
+                Payments
+                <Badge variant="secondary" className="ml-2">{payments.length}</Badge>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Summary Tab */}
           <TabsContent value="summary" className="space-y-6">
