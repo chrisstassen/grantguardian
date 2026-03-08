@@ -41,6 +41,7 @@ export function ExpenseDetailDialog({
   const [isEditing, setIsEditing] = useState(false)
   const [documents, setDocuments] = useState<any[]>([])
   const [uploadingDocs, setUploadingDocs] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   
   const [formData, setFormData] = useState({
     expense_date: expense.expense_date,
@@ -98,6 +99,7 @@ export function ExpenseDetailDialog({
     } else {
       setIsEditing(false)
       onExpenseUpdated()
+      // DO NOT call onOpenChange(false) here - keep dialog open
     }
   }
 
@@ -182,6 +184,25 @@ export function ExpenseDetailDialog({
     setUploadingDocs(false)
     loadDocuments()
     onExpenseUpdated()
+  }
+
+  const handleDeleteExpense = async () => {
+    if (!confirm('Delete this expense? This cannot be undone.')) return
+    
+    setDeleting(true)
+    
+    const { error } = await supabase
+      .from('expenses')
+      .delete()
+      .eq('id', expense.id)
+    
+    if (error) {
+      alert('Error deleting expense: ' + error.message)
+      setDeleting(false)
+    } else {
+      onOpenChange(false)
+      onExpenseUpdated()
+    }
   }
 
   const formatCurrency = (amount: number) => {
@@ -380,13 +401,22 @@ export function ExpenseDetailDialog({
             </div>
 
             {canEdit && (
-              <div className="flex justify-end gap-2 pt-4 border-t">
-                <Button variant="outline" onClick={() => onOpenChange(false)}>
-                  Close
+              <div className="flex justify-between pt-4 border-t">
+                <Button 
+                  variant="destructive" 
+                  onClick={handleDeleteExpense}
+                  disabled={deleting}
+                >
+                  {deleting ? 'Deleting...' : 'Delete Expense'}
                 </Button>
-                <Button onClick={() => setIsEditing(true)}>
-                  Edit Expense
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => onOpenChange(false)}>
+                    Close
+                  </Button>
+                  <Button onClick={() => setIsEditing(true)}>
+                    Edit Expense
+                  </Button>
+                </div>
               </div>
             )}
             {!canEdit && (
