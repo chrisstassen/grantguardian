@@ -22,6 +22,7 @@ import { EditGrantDialog } from '@/components/edit-grant-dialog'
 import { AddExpenseChoiceDialog } from '@/components/add-expense-choice-dialog'
 import { ExpenseDetailDialog } from '@/components/expense-detail-dialog'
 import { AddRequirementDialog } from '@/components/add-requirement-dialog'
+import { RequirementDetailDialog } from '@/components/requirement-detail-dialog'
 import { AddPaymentDialog } from '@/components/add-payment-dialog'
 import { PaymentDetailDialog } from '@/components/payment-detail-dialog'
 import { ArrowLeft, Pencil, Trash2, CheckCircle2, Clock, AlertCircle, Sparkles } from 'lucide-react'
@@ -60,6 +61,8 @@ export default function GrantDetailsPage() {
   const [payments, setPayments] = useState<any[]>([])
   const [selectedPayment, setSelectedPayment] = useState<any>(null)
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
+  const [selectedRequirement, setSelectedRequirement] = useState<any>(null)
+  const [requirementDialogOpen, setRequirementDialogOpen] = useState(false)
 
   const totalExpenses = expenses.reduce((sum, exp) => sum + (parseFloat(exp.amount) || 0), 0)
   const remainingBudget = (grant?.award_amount || 0) - totalExpenses
@@ -760,7 +763,11 @@ export default function GrantDetailsPage() {
                     {requirements.map((req) => (
                       <div
                         key={req.id}
-                        className="p-4 border border-slate-200 rounded-lg hover:bg-slate-50"
+                        className="p-4 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer"
+                        onClick={() => {
+                          setSelectedRequirement(req)
+                          setRequirementDialogOpen(true)
+                        }}
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
@@ -788,6 +795,17 @@ export default function GrantDetailsPage() {
                               )}
                               {req.policy_citation && (
                                 <span>{req.policy_citation}</span>
+                              )}
+                              {req.policy_url && (
+                                <a 
+                                  href={req.policy_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:underline"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  View Policy →
+                                </a>
                               )}
                             </div>
                           </div>
@@ -1035,6 +1053,31 @@ export default function GrantDetailsPage() {
             
             if (updated) {
               setSelectedPayment(updated)
+            }
+            
+            loadGrant()
+          }}
+          userRole={userRole}
+        />
+      )}
+
+      {selectedRequirement && (
+        <RequirementDetailDialog
+          requirement={selectedRequirement}
+          open={requirementDialogOpen}
+          onOpenChange={setRequirementDialogOpen}
+          onRequirementUpdated={async () => {
+            await loadRequirements()
+            
+            // Reload the selected requirement to show updates in dialog
+            const { data: updated } = await supabase
+              .from('compliance_requirements')
+              .select('*')
+              .eq('id', selectedRequirement.id)
+              .single()
+            
+            if (updated) {
+              setSelectedRequirement(updated)
             }
             
             loadGrant()

@@ -89,7 +89,7 @@ export function AddRequirementDialog({ grantId, onRequirementAdded }: AddRequire
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline">+ Add Requirement</Button>
+        <Button>+ Add Requirement</Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>

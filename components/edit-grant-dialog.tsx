@@ -30,6 +30,8 @@ interface Grant {
   period_start: string | null
   period_end: string | null
   status: string
+  award_letter_url: string | null
+  award_letter_name: string | null
 }
 
 interface EditGrantDialogProps {
@@ -51,6 +53,9 @@ export function EditGrantDialog({ grant, open, onOpenChange, onGrantUpdated }: E
     period_end: grant.period_end || '',
     status: grant.status
   })
+  const [newAwardLetterFile, setNewAwardLetterFile] = useState<File | null>(null)
+  const [deleteAwardLetter, setDeleteAwardLetter] = useState(false)
+  const [uploading, setUploading] = useState(false)
 
   // Update form data when grant changes
   useEffect(() => {
@@ -70,6 +75,67 @@ export function EditGrantDialog({ grant, open, onOpenChange, onGrantUpdated }: E
     e.preventDefault()
     setLoading(true)
 
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      alert('You must be logged in')
+      setLoading(false)
+      return
+    }
+
+    // Get user's organization for file paths
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('organization_id')
+      .eq('id', user.id)
+      .single()
+
+    let awardLetterUrl = grant.award_letter_url
+    let awardLetterName = grant.award_letter_name
+
+    // Handle award letter deletion
+    if (deleteAwardLetter && grant.award_letter_url) {
+      console.log('Deleting award letter:', grant.award_letter_url)
+      const { error: deleteError } = await supabase.storage
+        .from('award-letters')
+        .remove([grant.award_letter_url])
+      
+      console.log('Delete result:', deleteError ? 'ERROR' : 'SUCCESS')
+      
+      if (!deleteError) {
+        awardLetterUrl = null
+        awardLetterName = null
+      }
+    }
+
+    // Handle new award letter upload
+    if (newAwardLetterFile && profile?.organization_id) {
+      setUploading(true)
+      
+      // Delete old file if exists
+      if (grant.award_letter_url) {
+        await supabase.storage
+          .from('award-letters')
+          .remove([grant.award_letter_url])
+      }
+      
+      const fileName = newAwardLetterFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+      const filePath = `${profile.organization_id}/${Date.now()}_${fileName}`
+      
+      const { error: uploadError } = await supabase.storage
+        .from('award-letters')
+        .upload(filePath, newAwardLetterFile)
+
+      if (uploadError) {
+        console.error('Error uploading award letter:', uploadError)
+        alert('Error uploading award letter. Continuing without it.')
+      } else {
+        awardLetterUrl = filePath
+        awardLetterName = newAwardLetterFile.name
+      }
+      
+      setUploading(false)
+    }
+
     const { error } = await supabase
       .from('grants')
       .update({
@@ -81,6 +147,8 @@ export function EditGrantDialog({ grant, open, onOpenChange, onGrantUpdated }: E
         period_start: formData.period_start || null,
         period_end: formData.period_end || null,
         status: formData.status,
+        award_letter_url: awardLetterUrl,
+        award_letter_name: awardLetterName,
         updated_at: new Date().toISOString()
       })
       .eq('id', grant.id)
@@ -204,6 +272,71 @@ export function EditGrantDialog({ grant, open, onOpenChange, onGrantUpdated }: E
                 <SelectItem value="closed">Closed</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Award Letter Management</Label>
+            
+            {grant.award_letter_url && !deleteAwardLetter && (
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-slate-900">
+                    📄 {grant.award_letter_name || 'Current Award Letter'}
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => setDeleteAwardLetter(true)}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              </div>
+            )}
+            
+            {deleteAwardLetter && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-red-800">
+                    Award letter will be deleted when you save
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setDeleteAwardLetter(false)}
+                  >
+                    Undo
+                  </Button>
+                </div>
+              </div>
+            )}
+            
+            <div className="space-y-2">
+              <Label htmlFor="new_award_letter">
+                {grant.award_letter_url ? 'Replace Award Letter' : 'Upload Award Letter'}
+              </Label>
+              <Input
+                id="new_award_letter"
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                onChange={(e) => {
+                  setNewAwardLetterFile(e.target.files?.[0] || null)
+                  setDeleteAwardLetter(false) // Cancel deletion if uploading new file
+                }}
+              />
+              <p className="text-xs text-slate-500">
+                {grant.award_letter_url 
+                  ? 'Upload a new file to replace the current award letter'
+                  : 'Upload the official award letter (optional)'}
+              </p>
+              {newAwardLetterFile && (
+                <p className="text-sm text-slate-600">
+                  📄 New file: {newAwardLetterFile.name}
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
