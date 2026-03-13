@@ -119,9 +119,40 @@ export function AddReplyDialog({ noteId, onReplyAdded }: AddReplyDialogProps) {
         if (notifError) {
             console.error('Error creating notifications:', notifError)
         }
+
+        // Send email notifications
+        if (userIdsToNotify.size > 0) {
+        // Get all user profiles for recipients
+        const { data: recipientProfiles } = await supabase
+            .from('user_profiles')
+            .select('id, first_name, last_name, email')
+            .in('id', Array.from(userIdsToNotify))
+
+        if (recipientProfiles) {
+            for (const recipient of recipientProfiles) {
+            if (recipient.email) {
+                try {
+                await fetch('/api/send-notification-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                    recipientEmail: recipient.email,
+                    recipientName: `${recipient.first_name} ${recipient.last_name}`,
+                    senderName: userName,
+                    grantName: grant?.grant_name || 'a grant',
+                    notificationType: 'note_reply',
+                    grantId: note.grant_id
+                    })
+                })
+                } catch (err) {
+                console.error('Error sending email notification:', err)
+                }
+            }
+            }
+        }
         }
     }
-
+    }
     setLoading(false)
     setOpen(false)
     setContent('')

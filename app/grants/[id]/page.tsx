@@ -28,6 +28,7 @@ import { AddNoteDialog } from '@/components/add-note-dialog'
 import { AddReplyDialog } from '@/components/add-reply-dialog'
 import { PaymentDetailDialog } from '@/components/payment-detail-dialog'
 import { ArrowLeft, Pencil, Trash2, CheckCircle2, Clock, AlertCircle, Sparkles } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
 
 interface Grant {
   id: string
@@ -67,6 +68,8 @@ export default function GrantDetailsPage() {
   const [requirementDialogOpen, setRequirementDialogOpen] = useState(false)
   const [notes, setNotes] = useState<any[]>([])
   const [teamMembers, setTeamMembers] = useState<any[]>([])
+  const searchParams = useSearchParams()
+  const defaultTab = searchParams.get('tab') || 'summary'
 
   const totalExpenses = expenses.reduce((sum, exp) => sum + (parseFloat(exp.amount) || 0), 0)
   const remainingBudget = (grant?.award_amount || 0) - totalExpenses
@@ -76,19 +79,31 @@ export default function GrantDetailsPage() {
   }, 0)
 
   const loadGrant = async () => {
-    // Get user's role
+    console.log('loadGrant called')
+
+    // Check auth first
     const { data: { user } } = await supabase.auth.getUser()
+    console.log('User:', user)
     
-    if (user) {
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-      
-      if (profile) {
-        setUserRole(profile.role)
-      }
+    if (!user) {
+      // Preserve the current URL for redirect after login
+      const currentPath = window.location.pathname + window.location.search
+      router.push(`/login?redirect=${encodeURIComponent(currentPath)}`)
+      return
+    }
+    console.log('User authenticated, loading grant...')
+
+    // Get user's role
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    console.log('Profile:', profile)
+
+    if (profile) {
+      setUserRole(profile.role)
     }
 
     const { data, error } = await supabase
@@ -97,9 +112,11 @@ export default function GrantDetailsPage() {
       .eq('id', params.id)
       .single()
 
+    console.log('Grant data:', data, 'Error:', error)
+
     if (error) {
       console.error('Error loading grant:', error)
-      router.push('/dashboard')
+      setLoading(false)
     } else {
       setGrant(data)
       setLoading(false)
@@ -270,9 +287,11 @@ export default function GrantDetailsPage() {
 
     const { data, error } = await supabase
       .from('user_profiles')
-      .select('id, first_name, last_name')
+      .select('id, first_name, last_name, email')
       .eq('organization_id', profile.organization_id)
       .order('first_name')
+
+    console.log('Team members loaded:', data)
 
     if (error) {
       console.error('Error loading team members:', error)
@@ -400,6 +419,7 @@ export default function GrantDetailsPage() {
     setGeneratingRequirements(false)
   }
 }
+
 
   useEffect(() => {
     loadGrant()
@@ -571,7 +591,7 @@ export default function GrantDetailsPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Tabs defaultValue="summary" className="w-full">
+        <Tabs defaultValue={defaultTab} className="w-full">
           <div className="mb-6 overflow-x-auto overflow-y-hidden border-b border-slate-300 pb-3">
             <TabsList className="inline-flex w-full min-w-max lg:grid lg:grid-cols-6 lg:w-full h-auto p-0 bg-transparent gap-0">
               <TabsTrigger 

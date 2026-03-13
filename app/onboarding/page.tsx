@@ -78,10 +78,11 @@ export default function OnboardingPage() {
       .from('user_profiles')
       .insert([{
         id: user.id,
-        organization_id: selectedOrgId,
+        organization_id: org.id,
         role: 'staff',
         first_name: userName.first_name,
-        last_name: userName.last_name
+        last_name: userName.last_name,
+        email: user.email
       }])
 
     setLoading(false)
@@ -125,7 +126,8 @@ export default function OnboardingPage() {
         organization_id: org.id,
         role: 'admin',
         first_name: userName.first_name,
-        last_name: userName.last_name
+        last_name: userName.last_name,
+        email: user.email
       }])
 
     setLoading(false)

@@ -121,24 +121,29 @@ export function AddNoteDialog({ grantId, teamMembers, onNoteAdded }: AddNoteDial
       }
 
       // Send email notifications
-      for (const recipientId of selectedRecipients) {
+        for (const recipientId of selectedRecipients) {
         const recipient = teamMembers.find(m => m.id === recipientId)
-        if (recipient) {
-          // Get recipient's email from user_profiles
-          const { data: recipientProfile } = await supabase
-            .from('user_profiles')
-            .select('id')
-            .eq('id', recipientId)
-            .single()
-          
-          if (recipientProfile) {
-            // Get email from auth.users via RPC or just use a stored email field
-            // For now, we'll skip the email part since we need admin access
-            // You can add email field to user_profiles table later
-            console.log('Would send email to:', recipient.first_name, recipient.last_name)
-          }
+        console.log('Recipient found:', recipient)
+        console.log('Recipient email:', recipient?.email)
+        if (recipient && recipient.email) {
+            try {
+            await fetch('/api/send-notification-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                recipientEmail: recipient.email,
+                recipientName: `${recipient.first_name} ${recipient.last_name}`,
+                senderName: userName,
+                grantName: grant?.grant_name || 'a grant',
+                notificationType: 'note_mention',
+                grantId: grantId
+                })
+            })
+            } catch (err) {
+            console.error('Error sending email notification:', err)
+            }
         }
-      }
+        }
     }
 
     setLoading(false)
