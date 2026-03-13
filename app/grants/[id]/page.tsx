@@ -24,6 +24,8 @@ import { ExpenseDetailDialog } from '@/components/expense-detail-dialog'
 import { AddRequirementDialog } from '@/components/add-requirement-dialog'
 import { RequirementDetailDialog } from '@/components/requirement-detail-dialog'
 import { AddPaymentDialog } from '@/components/add-payment-dialog'
+import { AddNoteDialog } from '@/components/add-note-dialog'
+import { AddReplyDialog } from '@/components/add-reply-dialog'
 import { PaymentDetailDialog } from '@/components/payment-detail-dialog'
 import { ArrowLeft, Pencil, Trash2, CheckCircle2, Clock, AlertCircle, Sparkles } from 'lucide-react'
 
@@ -63,9 +65,15 @@ export default function GrantDetailsPage() {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
   const [selectedRequirement, setSelectedRequirement] = useState<any>(null)
   const [requirementDialogOpen, setRequirementDialogOpen] = useState(false)
+  const [notes, setNotes] = useState<any[]>([])
+  const [teamMembers, setTeamMembers] = useState<any[]>([])
 
   const totalExpenses = expenses.reduce((sum, exp) => sum + (parseFloat(exp.amount) || 0), 0)
   const remainingBudget = (grant?.award_amount || 0) - totalExpenses
+
+  const totalNotesCount = notes.reduce((sum, note) => {
+    return sum + 1 + (note.replies?.length || 0)
+  }, 0)
 
   const loadGrant = async () => {
     // Get user's role
@@ -165,6 +173,111 @@ export default function GrantDetailsPage() {
       console.error('Error loading payments:', error)
     } else {
       setPayments(data || [])
+    }
+  }
+
+  const loadNotes = async () => {
+    try {
+      console.log('Loading notes for grant:', params.id)
+      
+      const { data, error } = await supabase
+        .from('grant_notes')
+        .select('*')
+        .eq('grant_id', params.id)
+        .order('created_at', { ascending: false })
+
+      console.log('Notes query result:', { data, error })
+
+      if (error) {
+        console.error('Supabase error details:', JSON.stringify(error, null, 2))
+        setNotes([])
+        return
+      }
+
+      if (!data || data.length === 0) {
+        console.log('No notes found')
+        setNotes([])
+        return
+      }
+
+      // Load author info, replies, and recipients for each note
+      const notesWithDetails = await Promise.all(
+        data.map(async (note) => {
+          // Load note author
+          const { data: author } = await supabase
+            .from('user_profiles')
+            .select('first_name, last_name')
+            .eq('id', note.created_by_user_id)
+            .single()
+
+          // Load recipients
+          const { data: recipients } = await supabase
+            .from('note_recipients')
+            .select('*, recipient:user_profiles!note_recipients_user_id_fkey(first_name, last_name)')
+            .eq('note_id', note.id)
+
+          // Load replies with authors
+          const { data: repliesData } = await supabase
+            .from('grant_note_replies')
+            .select('*')
+            .eq('note_id', note.id)
+            .order('created_at', { ascending: true })
+
+          // Load reply authors
+          const repliesWithAuthors = await Promise.all(
+            (repliesData || []).map(async (reply) => {
+              const { data: replyAuthor } = await supabase
+                .from('user_profiles')
+                .select('first_name, last_name')
+                .eq('id', reply.created_by_user_id)
+                .single()
+
+              return {
+                ...reply,
+                created_by: replyAuthor || { first_name: 'Unknown', last_name: 'User' }
+              }
+            })
+          )
+
+          return {
+            ...note,
+            created_by: author || { first_name: 'Unknown', last_name: 'User' },
+            recipients: recipients || [],
+            replies: repliesWithAuthors || []
+          }
+        })
+      )
+
+      console.log('Notes with details:', notesWithDetails)
+      setNotes(notesWithDetails)
+    } catch (err) {
+      console.error('Exception loading notes:', err)
+      setNotes([])
+    }
+  }
+
+  const loadTeamMembers = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('organization_id')
+      .eq('id', user.id)
+      .single()
+
+    if (!profile) return
+
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('id, first_name, last_name')
+      .eq('organization_id', profile.organization_id)
+      .order('first_name')
+
+    if (error) {
+      console.error('Error loading team members:', error)
+    } else {
+      setTeamMembers(data || [])
     }
   }
 
@@ -294,6 +407,8 @@ export default function GrantDetailsPage() {
     loadRequirements()
     loadSpecialConditions()
     loadPayments()
+    loadNotes()
+    loadTeamMembers()
   }, [params.id])
 
   const handleDelete = async () => {
@@ -403,7 +518,7 @@ export default function GrantDetailsPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="bg-white border-b border-slate-200">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <Button 
             variant="ghost" 
             onClick={() => router.push('/dashboard')}
@@ -455,30 +570,58 @@ export default function GrantDetailsPage() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs defaultValue="summary" className="w-full">
-          <div className="mb-6 overflow-x-auto">
-            <TabsList className="inline-flex w-full min-w-max lg:grid lg:grid-cols-5 lg:w-full">
-              <TabsTrigger value="summary" className="flex-1 whitespace-nowrap">Summary</TabsTrigger>
-              <TabsTrigger value="special-conditions" className="flex-1 whitespace-nowrap">
-                Special Conditions
+          <div className="mb-6 overflow-x-auto overflow-y-hidden border-b border-slate-300 pb-3">
+            <TabsList className="inline-flex w-full min-w-max lg:grid lg:grid-cols-6 lg:w-full h-auto p-0 bg-transparent gap-0">
+              <TabsTrigger 
+                value="summary" 
+                className="flex-1 whitespace-nowrap border border-slate-300 border-r-0 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
+              >
+                Summary
+              </TabsTrigger>
+              <TabsTrigger 
+                value="special-conditions" 
+                className="flex-1 whitespace-nowrap border border-slate-300 border-r-0 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
+              >
+                <span className="hidden xl:inline">Special Conditions</span>
+                <span className="xl:hidden">Conditions</span>
                 {specialConditions.length > 0 && (
-                  <Badge variant="destructive" className="ml-2">{specialConditions.length}</Badge>
+                  <Badge variant="destructive" className="ml-1 xl:ml-2 text-xs">{specialConditions.length}</Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="requirements" className="flex-1 whitespace-nowrap">
-                Requirements
+              <TabsTrigger 
+                value="requirements" 
+                className="flex-1 whitespace-nowrap border border-slate-300 border-r-0 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
+              >
+                <span className="hidden xl:inline">Requirements</span>
+                <span className="xl:hidden">Req's</span>
                 {overdueRequirements.length > 0 && (
-                  <Badge variant="destructive" className="ml-2">{overdueRequirements.length}</Badge>
+                  <Badge variant="destructive" className="ml-1 xl:ml-2 text-xs">{overdueRequirements.length}</Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="expenses" className="flex-1 whitespace-nowrap">
+              <TabsTrigger 
+                value="expenses" 
+                className="flex-1 whitespace-nowrap border border-slate-300 border-r-0 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
+              >
                 Expenses
-                <Badge variant="secondary" className="ml-2">{expenses.length}</Badge>
+                <Badge variant="secondary" className="ml-1 xl:ml-2 text-xs">{expenses.length}</Badge>
               </TabsTrigger>
-              <TabsTrigger value="payments" className="flex-1 whitespace-nowrap">
+              <TabsTrigger 
+                value="payments" 
+                className="flex-1 whitespace-nowrap border border-slate-300 border-r-0 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
+              >
                 Payments
-                <Badge variant="secondary" className="ml-2">{payments.length}</Badge>
+                <Badge variant="secondary" className="ml-1 xl:ml-2 text-xs">{payments.length}</Badge>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="notes" 
+                className="flex-1 whitespace-nowrap border border-slate-300 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
+              >
+                Notes
+                {totalNotesCount > 0 && (
+                  <Badge variant="secondary" className="ml-1 xl:ml-2 text-xs">{totalNotesCount}</Badge>
+                )}
               </TabsTrigger>
             </TabsList>
           </div>
@@ -994,6 +1137,108 @@ export default function GrantDetailsPage() {
                             {formatCurrency(payment.amount)}
                           </p>
                         </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Notes Tab */}
+          <TabsContent value="notes">
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle>Notes & Discussion</CardTitle>
+                    <CardDescription>
+                      {notes.length} note{notes.length === 1 ? '' : 's'}
+                    </CardDescription>
+                  </div>
+                  {userRole !== 'viewer' && (
+                    <AddNoteDialog 
+                      grantId={params.id as string} 
+                      teamMembers={teamMembers}
+                      onNoteAdded={loadNotes} 
+                    />
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {notes.length === 0 ? (
+                  <div className="text-center py-12 text-slate-500">
+                    <p className="text-lg font-medium">No notes yet</p>
+                    <p className="text-sm mt-2">
+                      Start a conversation about this grant
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {notes.map((note) => (
+                      <div
+                        key={note.id}
+                        className="p-4 border border-slate-200 rounded-lg bg-white"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <p className="font-medium text-slate-900">
+                              {note.created_by?.first_name} {note.created_by?.last_name}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {new Date(note.created_at).toLocaleString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit'
+                              })}
+                              {note.is_edited && ' (edited)'}
+                            </p>
+                          </div>
+                        </div>
+                        <p className="text-slate-700 whitespace-pre-wrap">{note.content}</p>
+                        
+                        {/* Recipients */}
+                        {note.recipients && note.recipients.length > 0 && (
+                          <div className="mt-2 text-xs text-slate-500">
+                            To: {note.recipients.map((r: any) => 
+                              `${r.recipient?.first_name} ${r.recipient?.last_name}`
+                            ).join(', ')}
+                          </div>
+                        )}
+
+                        {/* Replies */}
+                        {note.replies && note.replies.length > 0 && (
+                          <div className="mt-4 ml-6 space-y-3 border-l-2 border-slate-200 pl-4">
+                            {note.replies.map((reply: any) => (
+                              <div key={reply.id}>
+                                <div className="flex items-start justify-between mb-1">
+                                  <p className="font-medium text-sm text-slate-900">
+                                    {reply.created_by?.first_name} {reply.created_by?.last_name}
+                                  </p>
+                                  <p className="text-xs text-slate-500">
+                                    {new Date(reply.created_at).toLocaleString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      hour: 'numeric',
+                                      minute: '2-digit'
+                                    })}
+                                  </p>
+                                </div>
+                                <p className="text-sm text-slate-700 whitespace-pre-wrap">{reply.content}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Reply button */}
+                        {userRole !== 'viewer' && (
+                          <AddReplyDialog 
+                            noteId={note.id} 
+                            onReplyAdded={loadNotes}
+                          />
+                        )}
                       </div>
                     ))}
                   </div>

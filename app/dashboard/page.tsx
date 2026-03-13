@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { AddGrantDialog } from '@/components/add-grant-dialog'
+import { LogOut, Settings, Bell } from 'lucide-react'
 
 interface Grant {
   id: string
@@ -25,6 +27,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [userProfile, setUserProfile] = useState<any>(null)
   const [organizationName, setOrganizationName] = useState('')
+  const [unreadCount, setUnreadCount] = useState<number>(0)
   const [isAdmin, setIsAdmin] = useState(false)
   const router = useRouter() 
 
@@ -60,6 +63,21 @@ const loadGrants = async () => {
   setGrants(grantsWithExpenses)
 }
 
+const loadUnreadNotifications = async () => {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+
+  const { count, error } = await supabase
+    .from('notifications')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .eq('is_read', false)
+
+  if (!error && count !== null) {
+    setUnreadCount(count)
+  }
+}
+
   useEffect(() => {
     const checkUser = async () => {
   const { data: { user } } = await supabase.auth.getUser()
@@ -85,6 +103,18 @@ const loadGrants = async () => {
   setUserProfile(profile)
   setOrganizationName((profile as any).organizations?.name || '')
   setIsAdmin(profile.role === 'admin')
+
+  // Load unread notifications count
+  const { count } = await supabase
+    .from('notifications')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .eq('is_read', false)
+
+  if (count !== null) {
+    setUnreadCount(count)
+  }
+
   await loadGrants()
   setLoading(false)
 }
@@ -128,22 +158,33 @@ const loadGrants = async () => {
     <div className="min-h-screen bg-slate-50">
       <header className="bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-slate-900">
+          <h1 className="text-2xl font-bold text-slate-900">
             GrantGuardian{organizationName ? `: ${organizationName}` : ''}
-            </h1>
-            <div className="flex gap-2">
+          </h1>
+          <div className="flex gap-2 items-center">
+            <Link href="/notifications" className="relative">
+              <Button variant="ghost" size="icon">
+                <Bell className="h-5 w-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </Button>
+            </Link>
+            
             {isAdmin && (
-                <Button onClick={() => router.push('/settings')} variant="outline">
+              <Button onClick={() => router.push('/settings')} variant="outline">
                 Settings
-                </Button>
+              </Button>
             )}
             <Button onClick={() => router.push('/profile')} variant="outline">
-                Profile
+              Profile
             </Button>
             <Button onClick={handleSignOut} variant="outline">
-                Sign Out
+              Sign Out
             </Button>
-            </div>
+          </div>
         </div>
       </header>
 
