@@ -32,6 +32,9 @@ export default function ProfilePage() {
   }, [])
 
   const loadProfile = async () => {
+    // Refresh session first to get latest data
+    await supabase.auth.refreshSession()
+    
     const { data: { user } } = await supabase.auth.getUser()
     
     if (!user) {
@@ -41,12 +44,12 @@ export default function ProfilePage() {
 
     const { data: profile } = await supabase
       .from('user_profiles')
-      .select('first_name, last_name')
+      .select('first_name, last_name, email')
       .eq('id', user.id)
       .single()
 
     setUser(user)
-    setEmail(user.email || '')
+    setEmail(profile?.email || user.email || '')
     setFirstName(profile?.first_name || '')
     setLastName(profile?.last_name || '')
     setLoading(false)
@@ -57,35 +60,43 @@ export default function ProfilePage() {
     setProfileMessage('')
     setSaving(true)
 
-    // Update user_profiles table
-    const { error: profileError } = await supabase
-      .from('user_profiles')
-      .update({
-        first_name: firstName,
-        last_name: lastName
-      })
-      .eq('id', user.id)
-
-    // Update email if changed
+    // Check if notification email is already in use by another user
     if (email !== user.email) {
-      const { error: emailError } = await supabase.auth.updateUser({
-        email: email
-      })
+      const { data: existingUsers } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .eq('email', email)
+        .neq('id', user.id)
 
-      if (emailError) {
-        setProfileMessage('Error updating email: ' + emailError.message)
+      if (existingUsers && existingUsers.length > 0) {
+        setProfileMessage('This email is already in use by another user')
         setSaving(false)
         return
       }
     }
+
+    // Update user_profiles (name + notification email)
+    const { error: profileError } = await supabase
+      .from('user_profiles')
+      .update({
+        first_name: firstName,
+        last_name: lastName,
+        email: email
+      })
+      .eq('id', user.id)
 
     setSaving(false)
 
     if (profileError) {
       setProfileMessage('Error updating profile: ' + profileError.message)
     } else {
-      setProfileMessage('Profile updated successfully!')
-      setTimeout(() => setProfileMessage(''), 3000)
+      if (email !== user.email) {
+        setProfileMessage('Profile updated! Your notification email is now ' + email + '. (Your login email remains ' + user.email + ')')
+      } else {
+        setProfileMessage('Profile updated successfully!')
+      }
+      loadProfile()
+      setTimeout(() => setProfileMessage(''), 6000)
     }
   }
 
@@ -186,7 +197,12 @@ export default function ProfilePage() {
                   required
                 />
                 <p className="text-xs text-slate-500">
-                  Changing your email will require verification
+                  Notification email - where you'll receive grant updates and mentions.
+                  {email !== user.email && (
+                    <span className="block mt-1 text-amber-600">
+                      Login email: {user.email} (contact admin to change)
+                    </span>
+                  )}
                 </p>
               </div>
 
