@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { InviteTeamMemberDialog } from '@/components/invite-team-member-dialog'
+import { ArrowLeft, Copy, Check, Trash2, UserCog } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import {
   AlertDialog,
@@ -24,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ArrowLeft, Copy, Trash2, UserCog } from 'lucide-react'
+
 
 interface TeamMember {
   id: string
@@ -39,6 +41,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
   const [organizationName, setOrganizationName] = useState('')
+  const [organizationId, setOrganizationId] = useState('')
   const [inviteCode, setInviteCode] = useState('')
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [currentUserId, setCurrentUserId] = useState('')
@@ -71,6 +74,7 @@ export default function SettingsPage() {
 
     setIsAdmin(true)
     setOrganizationName((profile as any).organizations?.name || '')
+    setOrganizationId(profile.organization_id)
     setInviteCode((profile as any).organizations?.invite_code || '')
 
     await loadTeamMembers(profile.organization_id)
@@ -174,10 +178,19 @@ export default function SettingsPage() {
         {/* Team Members */}
         <Card>
           <CardHeader>
-            <CardTitle>Team Members</CardTitle>
-            <CardDescription>
-              Manage users in your organization ({teamMembers.length} member{teamMembers.length === 1 ? '' : 's'})
-            </CardDescription>
+            <div className="flex justify-between items-center">
+              <div>
+                <CardTitle>Team Members</CardTitle>
+                <CardDescription>
+                  {teamMembers.length} member{teamMembers.length === 1 ? '' : 's'}
+                </CardDescription>
+              </div>
+              <InviteTeamMemberDialog 
+                organizationId={organizationId}
+                organizationName={organizationName}
+                onInviteSent={() => loadTeamMembers(organizationId)}
+              />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">

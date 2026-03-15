@@ -16,7 +16,7 @@ export async function POST(request: Request) {
       : `${senderName} replied to a note on the grant "${grantName}".`
 
     const { data, error } = await resend.emails.send({
-      from: 'GrantGuardian <notifications@resend.dev>', // Use resend.dev domain for testing
+      from: 'GrantGuardian <notifications@grantguardian.io>', // Use resend.dev domain for testing
       to: recipientEmail,
       subject: subject,
       html: `
