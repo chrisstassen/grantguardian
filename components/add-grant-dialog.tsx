@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { useOrganization } from '@/contexts/organization-context'
 import {
   Dialog,
   DialogContent,
@@ -27,6 +28,7 @@ interface AddGrantDialogProps {
 }
 
 export function AddGrantDialog({ onGrantAdded }: AddGrantDialogProps) {
+  const { activeOrg } = useOrganization()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
@@ -43,89 +45,83 @@ export function AddGrantDialog({ onGrantAdded }: AddGrantDialogProps) {
   const [uploading, setUploading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault()
-  setLoading(true)
+    e.preventDefault()
+    setLoading(true)
 
-  const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) {
-    alert('You must be logged in to add a grant')
+    if (!user) {
+      alert('You must be logged in to add a grant')
+      setLoading(false)
+      return
+    }
+
+    // Use active organization from context
+    if (!activeOrg) {
+      alert('You must be part of an organization to add grants')
+      setLoading(false)
+      return
+    }
+
+    let awardLetterUrl = null
+    let awardLetterName = null
+
+    // Upload award letter if selected
+    if (awardLetterFile) {
+      setUploading(true)
+      const fileName = awardLetterFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+      const filePath = `${activeOrg.id}/${Date.now()}_${fileName}`
+      
+      const { error: uploadError } = await supabase.storage
+        .from('award-letters')
+        .upload(filePath, awardLetterFile)
+
+      if (uploadError) {
+        console.error('Error uploading award letter:', uploadError)
+        alert('Error uploading award letter. Continuing without it.')
+      } else {
+        awardLetterUrl = filePath
+        awardLetterName = awardLetterFile.name
+      }
+      setUploading(false)
+    }
+
+    const { error } = await supabase.from('grants').insert([
+      {
+        organization_id: activeOrg.id,
+        grant_name: formData.grant_name,
+        funding_agency: formData.funding_agency,
+        program_type: formData.program_type || null,
+        award_number: formData.award_number || null,
+        award_amount: formData.award_amount ? parseFloat(formData.award_amount) : null,
+        period_start: formData.period_start || null,
+        period_end: formData.period_end || null,
+        status: formData.status,
+        award_letter_url: awardLetterUrl,
+        award_letter_name: awardLetterName
+      }
+    ])
+
     setLoading(false)
-    return
-  }
 
-  // Get user's organization
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('organization_id')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile?.organization_id) {
-    alert('You must be part of an organization to add grants')
-    setLoading(false)
-    return
-  }
-
-  let awardLetterUrl = null
-  let awardLetterName = null
-
-  // Upload award letter if selected
-  if (awardLetterFile) {
-    setUploading(true)
-    const fileName = awardLetterFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')
-    const filePath = `${profile.organization_id}/${Date.now()}_${fileName}`
-    
-    const { error: uploadError } = await supabase.storage
-      .from('award-letters')
-      .upload(filePath, awardLetterFile)
-
-    if (uploadError) {
-      console.error('Error uploading award letter:', uploadError)
-      alert('Error uploading award letter. Continuing without it.')
+    if (error) {
+      alert('Error adding grant: ' + error.message)
     } else {
-      awardLetterUrl = filePath
-      awardLetterName = awardLetterFile.name
+      setOpen(false)
+      setFormData({
+        grant_name: '',
+        funding_agency: '',
+        program_type: '',
+        award_number: '',
+        award_amount: '',
+        period_start: '',
+        period_end: '',
+        status: 'pending'
+      })
+      setAwardLetterFile(null)
+      onGrantAdded()
     }
-    setUploading(false)
   }
-
-  const { error } = await supabase.from('grants').insert([
-    {
-      organization_id: profile.organization_id,
-      grant_name: formData.grant_name,
-      funding_agency: formData.funding_agency,
-      program_type: formData.program_type || null,
-      award_number: formData.award_number || null,
-      award_amount: formData.award_amount ? parseFloat(formData.award_amount) : null,
-      period_start: formData.period_start || null,
-      period_end: formData.period_end || null,
-      status: formData.status,
-      award_letter_url: awardLetterUrl,
-      award_letter_name: awardLetterName
-    }
-  ])
-
-  setLoading(false)
-
-  if (error) {
-    alert('Error adding grant: ' + error.message)
-  } else {
-    setOpen(false)
-    setFormData({
-      grant_name: '',
-      funding_agency: '',
-      program_type: '',
-      award_number: '',
-      award_amount: '',
-      period_start: '',
-      period_end: '',
-      status: 'pending'
-    })
-    setAwardLetterFile(null)
-    onGrantAdded()
-  }
-}
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

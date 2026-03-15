@@ -7,6 +7,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '@/components/ui/command'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Check, ChevronsUpDown } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 export default function OnboardingPage() {
   const router = useRouter()
@@ -73,24 +77,39 @@ export default function OnboardingPage() {
       return
     }
 
-    // Create user profile
+    // Create or update user profile (without organization_id)
     const { error: profileError } = await supabase
       .from('user_profiles')
-      .insert([{
+      .upsert([{
         id: user.id,
-        organization_id: org.id,
-        role: 'staff',
         first_name: userName.first_name,
         last_name: userName.last_name,
         email: user.email
       }])
 
+    if (profileError) {
+      setError('Error creating profile: ' + profileError.message)
+      setLoading(false)
+      return
+    }
+
+    // Create organization membership
+    const { error: membershipError } = await supabase
+      .from('user_organization_memberships')
+      .insert([{
+        user_id: user.id,
+        organization_id: org.id,
+        role: 'staff',
+        is_primary: true
+      }])
+
     setLoading(false)
 
-    if (profileError) {
-      setError('Error joining organization: ' + profileError.message)
+    if (membershipError) {
+      setError('Error joining organization: ' + membershipError.message)
     } else {
-      router.push('/dashboard')
+      // Force full page reload to refresh organization context
+      window.location.href = '/dashboard'
     }
   }
 
@@ -118,24 +137,39 @@ export default function OnboardingPage() {
       return
     }
 
-    // Create user profile as admin
+    // Create or update user profile (without organization_id)
     const { error: profileError } = await supabase
       .from('user_profiles')
-      .insert([{
+      .upsert([{
         id: user.id,
-        organization_id: org.id,
-        role: 'admin',
         first_name: userName.first_name,
         last_name: userName.last_name,
         email: user.email
       }])
 
-    setLoading(false)
-
     if (profileError) {
       setError('Error creating profile: ' + profileError.message)
+      setLoading(false)
+      return
+    }
+
+    // Create organization membership as admin
+    const { error: membershipError } = await supabase
+      .from('user_organization_memberships')
+      .insert([{
+        user_id: user.id,
+        organization_id: org.id,
+        role: 'admin',
+        is_primary: true
+      }])
+
+    setLoading(false)
+
+    if (membershipError) {
+      setError('Error creating membership: ' + membershipError.message)
     } else {
-      router.push('/dashboard')
+      // Force full page reload to refresh organization context
+      window.location.href = '/dashboard'
     }
   }
 
@@ -179,18 +213,46 @@ export default function OnboardingPage() {
           {mode === 'join' && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="organization">Select Your Organization</Label>
-                <select
-                  id="organization"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md"
-                  value={selectedOrgId}
-                  onChange={(e) => setSelectedOrgId(e.target.value)}
-                >
-                  <option value="">Choose organization...</option>
-                  {organizations.map((org) => (
-                    <option key={org.id} value={org.id}>{org.name}</option>
-                  ))}
-                </select>
+                <Label>Select Your Organization</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between"
+                    >
+                      {selectedOrgId
+                        ? organizations.find((org) => org.id === selectedOrgId)?.name
+                        : "Search for your organization..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput placeholder="Type to search organizations..." />
+                      <CommandEmpty>No organization found.</CommandEmpty>
+                      <CommandGroup>
+                        {organizations.map((org) => (
+                          <CommandItem
+                            key={org.id}
+                            value={org.name}
+                            onSelect={() => {
+                              setSelectedOrgId(org.id)
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedOrgId === org.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {org.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="space-y-2">

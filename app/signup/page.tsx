@@ -87,28 +87,38 @@ function SignupForm() {
       return
     }
 
-    // If invitation exists, create user profile with invited organization
+    // If invitation exists, create user profile and membership
     if (invitation) {
-        console.log('Creating profile for invited user:', {
-          userId: authData.user.id,
-          organizationId: invitation.organization_id,
-          role: invitation.role,
-          email: email
-        })
-      const { error: profileError } = await supabase
+      // Create user profile (without organization_id)
+      const { error: userProfileError } = await supabase
         .from('user_profiles')
         .insert([{
           id: authData.user.id,
-          organization_id: invitation.organization_id,
-          role: invitation.role,
           first_name: firstName,
           last_name: lastName,
           email: email
         }])
 
-      if (profileError) {
-        console.error('Profile creation error:', profileError)
-        setError('Error creating profile: ' + profileError.message)
+      if (userProfileError) {
+        console.error('Profile creation error:', userProfileError)
+        setError('Error creating profile: ' + userProfileError.message)
+        setLoading(false)
+        return
+      }
+
+      // Create organization membership
+      const { error: membershipError } = await supabase
+        .from('user_organization_memberships')
+        .insert([{
+          user_id: authData.user.id,
+          organization_id: invitation.organization_id,
+          role: invitation.role,
+          is_primary: true
+        }])
+
+      if (membershipError) {
+        console.error('Membership creation error:', membershipError)
+        setError('Error creating membership: ' + membershipError.message)
         setLoading(false)
         return
       }
@@ -123,8 +133,8 @@ function SignupForm() {
         })
         .eq('id', invitation.id)
 
-      // Redirect to dashboard
-      router.push('/dashboard')
+      // Redirect to dashboard with full page reload
+      window.location.href = '/dashboard'
     } else {
       // No invitation - go to onboarding to join/create org
       router.push('/onboarding')
@@ -204,7 +214,10 @@ function SignupForm() {
 
           <div className="mt-4 text-center text-sm">
             Already have an account?{' '}
-            <Link href="/login" className="text-blue-600 hover:underline">
+            <Link 
+              href={inviteToken ? `/login?invite=${inviteToken}` : '/login'} 
+              className="text-blue-600 hover:underline"
+            >
               Sign in
             </Link>
           </div>

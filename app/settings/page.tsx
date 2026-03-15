@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { InviteTeamMemberDialog } from '@/components/invite-team-member-dialog'
 import { ArrowLeft, Copy, Check, Trash2, UserCog } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { useOrganization } from '@/contexts/organization-context'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,6 +39,7 @@ interface TeamMember {
 
 export default function SettingsPage() {
   const router = useRouter()
+  const { activeOrg, loading: orgLoading } = useOrganization()
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
   const [organizationName, setOrganizationName] = useState('')
@@ -47,8 +49,10 @@ export default function SettingsPage() {
   const [currentUserId, setCurrentUserId] = useState('')
 
   useEffect(() => {
-    checkAdminAndLoadData()
-  }, [])
+    if (!orgLoading) {
+      checkAdminAndLoadData()
+    }
+  }, [orgLoading, activeOrg])
 
   const checkAdminAndLoadData = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -58,38 +62,75 @@ export default function SettingsPage() {
       return
     }
 
-    setCurrentUserId(user.id)
+    // Wait for org context to load
+    if (orgLoading) return
 
-    // Check if user is admin
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('role, organization_id, organizations(name, invite_code)')
-      .eq('id', user.id)
-      .single()
-
-    if (!profile || profile.role !== 'admin') {
+    // Check if user is admin of active org
+    if (!activeOrg || activeOrg.role !== 'admin') {
       router.push('/dashboard')
       return
     }
 
+    setCurrentUserId(user.id)
     setIsAdmin(true)
-    setOrganizationName((profile as any).organizations?.name || '')
-    setOrganizationId(profile.organization_id)
-    setInviteCode((profile as any).organizations?.invite_code || '')
+    setOrganizationName(activeOrg.name)
+    setOrganizationId(activeOrg.id)
+    setInviteCode('') // We'll load this separately
 
-    await loadTeamMembers(profile.organization_id)
+    // Load invite code
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('invite_code')
+      .eq('id', activeOrg.id)
+      .single()
+
+    if (org) {
+      setInviteCode(org.invite_code)
+    }
+
+    await loadTeamMembers(activeOrg.id)
     setLoading(false)
   }
 
   const loadTeamMembers = async (organizationId: string) => {
-    const { data } = await supabase
-      .from('user_profiles')
-      .select('id, first_name, last_name, role, created_at')
+    console.log('Loading members for org:', organizationId)
+    
+    // Load team members from memberships table
+    const { data: memberships, error } = await supabase
+      .from('user_organization_memberships')
+      .select('user_id, role, created_at')
       .eq('organization_id', organizationId)
       .order('created_at', { ascending: false })
 
-    if (data) {
-      setTeamMembers(data)
+    console.log('Memberships loaded:', memberships, error)
+
+    if (memberships && memberships.length > 0) {
+      // Load user profiles for each membership
+      const userIds = memberships.map(m => m.user_id)
+      
+      const { data: profiles, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('id, first_name, last_name, email')
+        .in('id', userIds)
+
+      console.log('Profiles loaded:', profiles, profileError)
+
+      if (profiles) {
+        const formattedMembers = memberships.map(m => {
+          const profile = profiles.find(p => p.id === m.user_id)
+          return {
+            id: m.user_id,
+            first_name: profile?.first_name || '',
+            last_name: profile?.last_name || '',
+            email: profile?.email || '',
+            role: m.role,
+            created_at: m.created_at
+          }
+        })
+        
+        console.log('Formatted members:', formattedMembers)
+        setTeamMembers(formattedMembers)
+      }
     }
   }
 

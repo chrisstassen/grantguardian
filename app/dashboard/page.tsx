@@ -7,7 +7,9 @@ import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { AddGrantDialog } from '@/components/add-grant-dialog'
-import { LogOut, Settings, Bell } from 'lucide-react'
+import { Bell } from 'lucide-react'
+import { OrganizationSwitcher } from '@/components/organization-switcher'
+import { useOrganization } from '@/contexts/organization-context'
 
 interface Grant {
   id: string
@@ -22,105 +24,103 @@ interface Grant {
 }
 
 export default function DashboardPage() {
+  const router = useRouter()
+  const { activeOrg, loading: orgLoading } = useOrganization()
+  
   const [user, setUser] = useState<any>(null)
   const [grants, setGrants] = useState<Grant[]>([])
   const [loading, setLoading] = useState(true)
   const [userProfile, setUserProfile] = useState<any>(null)
-  const [organizationName, setOrganizationName] = useState('')
   const [unreadCount, setUnreadCount] = useState<number>(0)
   const [isAdmin, setIsAdmin] = useState(false)
-  const router = useRouter() 
-
-const loadGrants = async () => {
-  const { data: grantsData, error: grantsError } = await supabase
-    .from('grants')
-    .select('*')
-    .order('created_at', { ascending: false })
-
-  if (grantsError) {
-    console.error('Error loading grants:', grantsError)
-    return
-  }
-
-  // Load expenses for each grant
-  const grantsWithExpenses = await Promise.all(
-    (grantsData || []).map(async (grant) => {
-      const { data: expenses } = await supabase
-        .from('expenses')
-        .select('amount')
-        .eq('grant_id', grant.id)
-      
-      const totalExpenses = expenses?.reduce((sum, exp) => sum + parseFloat(exp.amount), 0) || 0
-      
-      return {
-        ...grant,
-        total_expenses: totalExpenses,
-        balance: (grant.award_amount || 0) - totalExpenses
-      }
-    })
-  )
-
-  setGrants(grantsWithExpenses)
-}
-
-const loadUnreadNotifications = async () => {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return
-
-  const { count, error } = await supabase
-    .from('notifications')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.id)
-    .eq('is_read', false)
-
-  if (!error && count !== null) {
-    setUnreadCount(count)
-  }
-}
 
   useEffect(() => {
-    const checkUser = async () => {
-  const { data: { user } } = await supabase.auth.getUser()
-  
-  if (!user) {
-    router.push('/login')
-    return
+    if (!orgLoading) {
+      checkUser()
+    }
+  }, [orgLoading, activeOrg])
+
+  const checkUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    console.log('Dashboard checkUser:', { user: !!user, activeOrg, orgLoading })
+    
+    if (!user) {
+      router.push('/login')
+      return
+    }
+
+    if (orgLoading) {
+      return // Still loading, don't do anything
+    }
+
+    if (!activeOrg) {
+      console.log('No active org, redirecting to onboarding')
+      router.push('/onboarding')
+      return
+    }
+
+    console.log('Active org found:', activeOrg)
+    
+    setUser(user)
+    setIsAdmin(activeOrg.role === 'admin')
+
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('first_name, last_name')
+      .eq('id', user.id)
+      .single()
+
+    setUserProfile(profile)
+
+    const { count } = await supabase
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('is_read', false)
+
+    if (count !== null) {
+      setUnreadCount(count)
+    }
+
+    await loadGrants()
+    setLoading(false)
   }
 
-  // Check if user has an organization and get profile info
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('organization_id, role, first_name, last_name, organizations(name)')
-    .eq('id', user.id)
-    .single()
+  const loadGrants = async () => {
+    if (!activeOrg) return
 
-  if (!profile || !profile.organization_id) {
-    router.push('/onboarding')
-    return
+    const { data: grantsData, error: grantsError } = await supabase
+      .from('grants')
+      .select('*')
+      .eq('organization_id', activeOrg.id)
+      .order('created_at', { ascending: false })
+
+    if (grantsError) {
+      console.error('Error loading grants:', grantsError)
+      return
+    }
+
+    // Load expenses for each grant
+    const grantsWithExpenses = await Promise.all(
+      (grantsData || []).map(async (grant) => {
+        const { data: expenses } = await supabase
+          .from('expenses')
+          .select('amount')
+          .eq('grant_id', grant.id)
+        
+        const totalExpenses = expenses?.reduce((sum, exp) => sum + parseFloat(exp.amount), 0) || 0
+        
+        return {
+          ...grant,
+          total_expenses: totalExpenses,
+          balance: (grant.award_amount || 0) - totalExpenses
+        }
+      })
+    )
+
+    setGrants(grantsWithExpenses)
   }
-
-  setUser(user)
-  setUserProfile(profile)
-  setOrganizationName((profile as any).organizations?.name || '')
-  setIsAdmin(profile.role === 'admin')
-
-  // Load unread notifications count
-  const { count } = await supabase
-    .from('notifications')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.id)
-    .eq('is_read', false)
-
-  if (count !== null) {
-    setUnreadCount(count)
-  }
-
-  await loadGrants()
-  setLoading(false)
-}
-
-    checkUser()
-  }, [router])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -146,7 +146,7 @@ const loadUnreadNotifications = async () => {
     })
   }
 
-  if (loading) {
+  if (loading || orgLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p>Loading...</p>
@@ -158,9 +158,10 @@ const loadUnreadNotifications = async () => {
     <div className="min-h-screen bg-slate-50">
       <header className="bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-slate-900">
-            GrantGuardian{organizationName ? `: ${organizationName}` : ''}
-          </h1>
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-bold text-slate-900">GrantGuardian</h1>
+            <OrganizationSwitcher />
+          </div>
           <div className="flex gap-2 items-center">
             <Link href="/notifications" className="relative">
               <Button variant="ghost" size="icon">
@@ -190,15 +191,15 @@ const loadUnreadNotifications = async () => {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8 flex justify-between items-center">
-            <div>
-                <h2 className="text-3xl font-bold text-slate-900">Dashboard</h2>
-                <p className="text-slate-600 mt-2">
-                Welcome back, {userProfile?.first_name || user?.email}
-                </p>
-            </div>
-            {userProfile?.role !== 'viewer' && (
-                <AddGrantDialog onGrantAdded={loadGrants} />
-            )}
+          <div>
+            <h2 className="text-3xl font-bold text-slate-900">Dashboard</h2>
+            <p className="text-slate-600 mt-2">
+              Welcome back, {userProfile?.first_name || user?.email}
+            </p>
+          </div>
+          {activeOrg?.role !== 'viewer' && (
+            <AddGrantDialog onGrantAdded={loadGrants} />
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

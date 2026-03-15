@@ -19,6 +19,64 @@ function LoginForm() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  const processInvitation = async (token: string) => {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+
+  // Look up the invitation
+  const { data: invitation, error: inviteError } = await supabase
+    .from('team_invitations')
+    .select('*, organizations(name)')
+    .eq('token', token)
+    .eq('status', 'pending')
+    .single()
+
+  if (inviteError || !invitation) {
+    setError('Invalid or expired invitation')
+    return
+  }
+
+  // Check if invitation email matches logged-in user
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('email')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.email !== invitation.invited_email) {
+    setError('This invitation was sent to a different email address')
+    return
+  }
+
+  // Create organization membership
+  const { error: membershipError } = await supabase
+    .from('user_organization_memberships')
+    .insert([{
+      user_id: user.id,
+      organization_id: invitation.organization_id,
+      role: invitation.role,
+      is_primary: false // Not primary since they already have an org
+    }])
+
+  if (membershipError) {
+    setError('Error joining organization: ' + membershipError.message)
+    return
+  }
+
+  // Mark invitation as accepted
+  await supabase
+    .from('team_invitations')
+    .update({
+      status: 'accepted',
+      accepted_at: new Date().toISOString(),
+      accepted_by_user_id: user.id
+    })
+    .eq('id', invitation.id)
+
+  // Redirect to dashboard with full reload
+  window.location.href = '/dashboard'
+}
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -33,7 +91,15 @@ function LoginForm() {
       setError(error.message)
       setLoading(false)
     } else {
-      router.push(redirect || '/dashboard')
+      // Check if there's an invite token to process
+      const inviteToken = searchParams.get('invite')
+      
+      if (inviteToken) {
+        // Process the invitation after login
+        await processInvitation(inviteToken)
+      } else {
+        router.push(redirect || '/dashboard')
+      }
     }
   }
 
