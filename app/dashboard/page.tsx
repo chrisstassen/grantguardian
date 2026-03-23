@@ -55,14 +55,14 @@ export default function DashboardPage() {
     }
 
     // Check if system admin
-    const { data: profile } = await supabase
+    const { data: adminProfile } = await supabase
       .from('user_profiles')
       .select('is_system_admin')
       .eq('id', user.id)
       .single()
 
     // System admins don't need an org - redirect to admin dashboard
-    if (profile?.is_system_admin) {
+    if (adminProfile?.is_system_admin) {
       router.push('/admin')
       return
     }
