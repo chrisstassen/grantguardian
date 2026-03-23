@@ -28,9 +28,26 @@ export default function OnboardingPage() {
   const [orgName, setOrgName] = useState('')
 
   useEffect(() => {
+    checkIfSystemAdmin()
     loadOrganizations()
     loadUserName()
   }, [])
+
+  const checkIfSystemAdmin = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('is_system_admin')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.is_system_admin) {
+      // Redirect system admins to admin dashboard
+      router.push('/admin')
+    }
+  }
 
   const loadOrganizations = async () => {
     const { data } = await supabase
