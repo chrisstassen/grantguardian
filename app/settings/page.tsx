@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { InviteTeamMemberDialog } from '@/components/invite-team-member-dialog'
-import { ArrowLeft, Copy, Check, Trash2, UserCog, Paperclip } from 'lucide-react'
+import { ArrowLeft, Copy, Check, Trash2, UserCog, Paperclip, LifeBuoy } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { useOrganization } from '@/contexts/organization-context'
 import {
@@ -229,7 +229,7 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="bg-white border-b border-slate-200">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <Button 
             variant="ghost" 
             onClick={() => router.push('/dashboard')}
@@ -243,7 +243,7 @@ export default function SettingsPage() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         {/* Invite Code */}
         <Card>
           <CardHeader>
@@ -265,194 +265,79 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Team Members */}
-        <Card>
-          <CardHeader>
-            <div className="flex justify-between items-center">
-              <div>
-                <CardTitle>Team Members</CardTitle>
-                <CardDescription>
-                  {teamMembers.length} member{teamMembers.length === 1 ? '' : 's'}
-                </CardDescription>
-              </div>
-              <InviteTeamMemberDialog 
-                organizationId={organizationId}
-                organizationName={organizationName}
-                onInviteSent={() => loadTeamMembers(organizationId)}
-              />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {teamMembers.map((member) => (
-                <div
-                  key={member.id}
-                  className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:bg-slate-50"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <p className="font-medium text-slate-900">
-                        {member.first_name} {member.last_name}
-                      </p>
-                      {member.id === currentUserId && (
-                        <Badge variant="outline" className="text-xs">You</Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-slate-500 mt-1">
-                      Joined {new Date(member.created_at).toLocaleDateString('en-US', { 
-                        month: 'short', 
-                        day: 'numeric', 
-                        year: 'numeric' 
-                      })}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    {/* Role Selector */}
-                    <Select
-                      value={member.role}
-                      onValueChange={(value) => handleChangeRole(member.id, value)}
-                      disabled={member.id === currentUserId}
-                    >
-                      <SelectTrigger className="w-32">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="admin">Admin</SelectItem>
-                        <SelectItem value="staff">Staff</SelectItem>
-                        <SelectItem value="viewer">Viewer</SelectItem>
-                      </SelectContent>
-                    </Select>
-
-                    {/* Remove User Button */}
-                    {member.id !== currentUserId && (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="destructive" size="sm">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Remove Team Member?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This will remove {member.first_name} {member.last_name} from your organization. 
-                              They will lose access to all grants and data.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleRemoveUser(member.id)}
-                              className="bg-red-600 hover:bg-red-700"
-                            >
-                              Remove User
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    )}
-                  </div>
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <UserCog className="h-6 w-6 text-blue-600" />
+                    Team Members
+                  </CardTitle>
+                  <CardDescription className="mt-2">
+                    {teamMembers.length} member{teamMembers.length === 1 ? '' : 's'}
+                  </CardDescription>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                <InviteTeamMemberDialog 
+                  organizationId={organizationId}
+                  organizationName={organizationName}
+                  onInviteSent={() => loadTeamMembers(organizationId)}
+                />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                className="w-full" 
+                variant="outline"
+                onClick={() => router.push('/settings/members')}
+              >
+                View All Members
+              </Button>
+            </CardContent>
+          </Card>
 
-        {/* Organization Support Tickets */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Support Tickets</CardTitle>
-                <CardDescription>
-                  All support requests for your organization
-                </CardDescription>
+          <Card className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <LifeBuoy className="h-6 w-6 text-purple-600" />
+                    Support Tickets
+                  </CardTitle>
+                  <CardDescription className="mt-2">
+                    {tickets.filter(ticket => ticketFilter === 'all' || ticket.status !== 'closed').length} {ticketFilter === 'active' ? 'active' : 'total'} ticket{tickets.filter(ticket => ticketFilter === 'all' || ticket.status !== 'closed').length === 1 ? '' : 's'}
+                  </CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant={ticketFilter === 'active' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setTicketFilter('active')}
+                  >
+                    Active
+                  </Button>
+                  <Button
+                    variant={ticketFilter === 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setTicketFilter('all')}
+                  >
+                    All
+                  </Button>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <Button
-                  variant={ticketFilter === 'active' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setTicketFilter('active')}
-                >
-                  Active Only
-                </Button>
-                <Button
-                  variant={ticketFilter === 'all' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setTicketFilter('all')}
-                >
-                  All
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {tickets.filter(ticket => ticketFilter === 'all' || ticket.status !== 'closed').length === 0 ? (
-              <p className="text-slate-500 text-center py-8">
-                {ticketFilter === 'active' ? 'No active support tickets' : 'No support tickets yet'}
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {tickets
-                  .filter(ticket => ticketFilter === 'all' || ticket.status !== 'closed')
-                  .map((ticket) => (
-                    <div
-                      key={ticket.id}
-                      className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer"
-                      onClick={() => router.push(`/support/tickets/${ticket.id}`)}
-                    >
-                      <div className="flex-1">
-                        <h4 className="font-medium text-slate-900">{ticket.subject}</h4>
-                        <p className="text-sm text-slate-500">
-                          Submitted by {ticket.user_profiles?.first_name} {ticket.user_profiles?.last_name} on{' '}
-                          {new Date(ticket.created_at).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric'
-                          })}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {ticket.attachment_count > 0 && (
-                          <Paperclip className="h-4 w-4 text-slate-400" />
-                        )}
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          ticket.ticket_type === 'system_bug'
-                            ? 'bg-red-100 text-red-800'
-                            : ticket.ticket_type === 'enhancement_request'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-slate-100 text-slate-600'
-                        }`}>
-                          {ticket.ticket_type.replace(/_/g, ' ')}
-                        </span>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          ticket.status === 'open' 
-                            ? 'bg-blue-100 text-blue-800' 
-                            : ticket.status === 'submitted_to_grantguardian'
-                            ? 'bg-purple-100 text-purple-800'
-                            : ticket.status === 'grantguardian_processing_complete'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-slate-100 text-slate-800'
-                        }`}>
-                          {ticket.status.replace(/_/g, ' ')}
-                        </span>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          ticket.priority === 'urgent'
-                            ? 'bg-red-100 text-red-800'
-                            : ticket.priority === 'high'
-                            ? 'bg-orange-100 text-orange-800'
-                            : 'bg-slate-100 text-slate-600'
-                        }`}>
-                          {ticket.priority}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                className="w-full" 
+                variant="outline"
+                onClick={() => router.push('/settings/tickets')}
+              >
+                View All Tickets
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       </main>
     </div>
   )
