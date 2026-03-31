@@ -35,6 +35,7 @@ export default function OnboardingPage() {
 
   const checkIfSystemAdmin = async () => {
     const { data: { user } } = await supabase.auth.getUser()
+    
     if (!user) return
 
     const { data: profile } = await supabase
@@ -44,7 +45,6 @@ export default function OnboardingPage() {
       .single()
 
     if (profile?.is_system_admin) {
-      // Redirect system admins to admin dashboard
       router.push('/admin')
     }
   }

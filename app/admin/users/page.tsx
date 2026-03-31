@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { ArrowLeft, Search, Building2, Shield } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { InviteSystemAdminDialog } from '@/components/invite-system-admin-dialog'
 
 export default function AdminUsersPage() {
   const router = useRouter()
@@ -119,7 +120,10 @@ export default function AdminUsersPage() {
         {/* Users List */}
         <Card>
           <CardHeader>
-            <CardTitle>All Users ({filteredUsers.length})</CardTitle>
+            <div className="flex items-center justify-between">
+                <CardTitle>All Users ({filteredUsers.length})</CardTitle>
+                <InviteSystemAdminDialog onInviteSent={loadUsers} />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">

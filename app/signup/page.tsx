@@ -13,6 +13,9 @@ function SignupForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const inviteToken = searchParams.get('invite')
+  const systemAdminInviteToken = searchParams.get('system_admin_invite')  
+  const [invitedEmail, setInvitedEmail] = useState('')
+  const [isSystemAdminInvite, setIsSystemAdminInvite] = useState(false)
   
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -26,19 +29,48 @@ function SignupForm() {
     setError('')
     setLoading(true)
 
-    // If there's an invite token, validate it first
+    // Validate system admin invitation if token exists
+    let systemAdminInvite = null
+    if (systemAdminInviteToken) {
+      const { data, error: inviteError } = await supabase
+        .from('system_admin_invitations')
+        .select('*')
+        .eq('token', systemAdminInviteToken)
+        .eq('status', 'pending')
+        .single()
+
+      if (inviteError || !data) {
+        setError('Invalid or expired system admin invitation link')
+        setLoading(false)
+        return
+      }
+
+      // Check if invitation is expired
+      if (new Date(data.expires_at) < new Date()) {
+        setError('This invitation has expired. Please request a new one.')
+        setLoading(false)
+        return
+      }
+
+      // Check if email matches invitation
+      if (data.invited_email !== email) {
+        setError(`This invitation was sent to ${data.invited_email}. Please use that email address.`)
+        setLoading(false)
+        return
+      }
+
+      systemAdminInvite = data
+    }
+
+    // Validate team invitation if token exists
     let invitation = null
     if (inviteToken) {
-      console.log('Looking up invitation with token:', inviteToken)
-      
-      const { data, error: inviteError } = await supabase
+     const { data, error: inviteError } = await supabase
         .from('team_invitations')
         .select('*, organizations(name)')
         .eq('token', inviteToken)
         .eq('status', 'pending')
         .single()
-
-      console.log('Invitation lookup result:', { data, error: inviteError })
 
       if (inviteError || !data) {
         setError('Invalid or expired invitation link')
@@ -84,6 +116,42 @@ function SignupForm() {
     if (!authData.user) {
       setError('Failed to create account')
       setLoading(false)
+      return
+    }
+
+    // If system admin invitation, create system admin profile
+    if (systemAdminInvite) {
+      const { data: profileData, error: profileError } = await supabase
+        .from('user_profiles')
+        .insert([{
+          id: authData.user.id,
+          first_name: firstName,
+          last_name: lastName,
+          email: email,
+          is_system_admin: true
+        }])
+        .select()
+
+      if (profileError) {
+        console.error('Profile creation error:', profileError)
+        alert('Error creating profile: ' + profileError.message)
+        setError('Error creating profile: ' + profileError.message)
+        setLoading(false)
+        return
+      }
+
+      // Mark invitation as accepted
+      await supabase
+        .from('system_admin_invitations')
+        .update({
+          status: 'accepted',
+          accepted_at: new Date().toISOString(),
+          accepted_by_user_id: authData.user.id
+        })
+        .eq('token', systemAdminInviteToken)
+
+      // Redirect to admin dashboard
+      window.location.href = '/admin'
       return
     }
 
@@ -183,9 +251,19 @@ function SignupForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
+                disabled={isSystemAdminInvite && invitedEmail !== ''}
                 required
               />
             </div>
+
+            {isSystemAdminInvite && (
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                <p className="text-sm text-purple-900">
+                  <strong>System Administrator Invitation</strong><br />
+                  You're being invited to join as a GrantGuardian system administrator.
+                </p>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>

@@ -5,9 +5,11 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 
 export async function POST(request: Request) {
   try {
-    const { recipientEmail, organizationName, role, token, inviterName } = await request.json()
+    const { recipientEmail, organizationName, role, token, inviterName, isSystemAdmin } = await request.json()
 
-    const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/signup?invite=${token}`
+    const inviteUrl = isSystemAdmin
+      ? `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/signup?system_admin_invite=${token}`
+      : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/signup?invite=${token}`
 
     const { data, error } = await resend.emails.send({
       from: 'GrantGuardian <notifications@grantguardian.io>',

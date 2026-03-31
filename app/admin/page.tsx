@@ -27,21 +27,34 @@ export default function AdminDashboardPage() {
     const { data: { user } } = await supabase.auth.getUser()
     
     if (!user) {
-      router.push('/login')
-      return
+        router.push('/login')
+        return
     }
 
     // Check if user is system admin
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('is_system_admin')
-      .eq('id', user.id)
-      .single()
+    const { data: profile, error } = await supabase
+        .from('user_profiles')
+        .select('is_system_admin')
+        .eq('id', user.id)
+        .single()
 
-    if (!profile?.is_system_admin) {
-      // Not a system admin - redirect to dashboard
-      router.push('/dashboard')
-      return
+    if (error || !profile) {
+        // Profile might not exist yet - wait and try again
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        
+        const { data: retryProfile } = await supabase
+        .from('user_profiles')
+        .select('is_system_admin')
+        .eq('id', user.id)
+        .single()
+        
+        if (!retryProfile?.is_system_admin) {
+        router.push('/dashboard')
+        return
+        }
+    } else if (!profile.is_system_admin) {
+        router.push('/dashboard')
+        return
     }
 
     setIsSystemAdmin(true)
