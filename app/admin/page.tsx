@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Building2, Users, LifeBuoy, Search } from 'lucide-react'
+import { NotificationsDropdown } from '@/components/notifications-dropdown'
 
 export default function AdminDashboardPage() {
   const router = useRouter()
@@ -114,12 +115,13 @@ export default function AdminDashboardPage() {
             <h1 className="text-2xl font-bold text-slate-900">GrantGuardian Admin</h1>
             <p className="text-sm text-slate-600">System Administration</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            <NotificationsDropdown />
             <Button onClick={() => router.push('/profile')} variant="outline">
-              Profile
+                Profile
             </Button>
             <Button onClick={handleSignOut} variant="outline">
-              Sign Out
+                Sign Out
             </Button>
           </div>
         </div>

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ArrowLeft, Camera, Paperclip } from 'lucide-react'
+import { AppLayout } from '@/components/app-layout'
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -180,22 +181,10 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b border-slate-200">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <Button 
-            variant="ghost" 
-            onClick={() => router.push('/dashboard')}
-            className="mb-2"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
-          <h1 className="text-3xl font-bold text-slate-900">Profile Settings</h1>
-        </div>
-      </header>
-
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+  <AppLayout 
+    title="My Profile" 
+    showBackButton={true}
+  >
         {/* Profile Information */}
         <Card>
           <CardHeader>
@@ -397,7 +386,6 @@ export default function ProfilePage() {
             )}
           </CardContent>
         </Card>
-      </main>
-    </div>
-  )
+      </AppLayout>
+)
 }

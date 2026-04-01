@@ -9,6 +9,7 @@ import { InviteTeamMemberDialog } from '@/components/invite-team-member-dialog'
 import { ArrowLeft, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { useOrganization } from '@/contexts/organization-context'
+import { AppLayout } from '@/components/app-layout'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -149,23 +150,12 @@ export default function SettingsMembersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b border-slate-200">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <Button 
-            variant="ghost" 
-            onClick={() => router.push('/settings')}
-            className="mb-2"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Settings
-          </Button>
-          <h1 className="text-3xl font-bold text-slate-900">Team Members</h1>
-          <p className="text-slate-600 mt-1">{organizationName}</p>
-        </div>
-      </header>
-
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <AppLayout 
+    title="Team Members" 
+    subtitle={organizationName}
+    showBackButton={true}
+    backUrl="/settings"
+  >
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
@@ -257,7 +247,6 @@ export default function SettingsMembersPage() {
             </div>
           </CardContent>
         </Card>
-      </main>
-    </div>
-  )
+      </AppLayout>
+)
 }

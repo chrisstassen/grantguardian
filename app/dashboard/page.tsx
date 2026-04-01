@@ -10,6 +10,7 @@ import { AddGrantDialog } from '@/components/add-grant-dialog'
 import { Bell } from 'lucide-react'
 import { OrganizationSwitcher } from '@/components/organization-switcher'
 import { useOrganization } from '@/contexts/organization-context'
+import { NotificationsDropdown } from '@/components/notifications-dropdown'
 
 interface Grant {
   id: string
@@ -31,7 +32,6 @@ export default function DashboardPage() {
   const [grants, setGrants] = useState<Grant[]>([])
   const [loading, setLoading] = useState(true)
   const [userProfile, setUserProfile] = useState<any>(null)
-  const [unreadCount, setUnreadCount] = useState<number>(0)
   const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
@@ -86,16 +86,6 @@ export default function DashboardPage() {
       .single()
 
     setUserProfile(profile)
-
-    const { count } = await supabase
-      .from('notifications')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('is_read', false)
-
-    if (count !== null) {
-      setUnreadCount(count)
-    }
 
     await loadGrants()
     setLoading(false)
@@ -177,16 +167,7 @@ export default function DashboardPage() {
             <OrganizationSwitcher />
           </div>
           <div className="flex gap-2 items-center">
-            <Link href="/notifications" className="relative">
-              <Button variant="ghost" size="icon">
-                <Bell className="h-5 w-5" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </Button>
-            </Link>
+            <NotificationsDropdown />
             
             {isAdmin && (
               <Button onClick={() => router.push('/settings')} variant="outline">

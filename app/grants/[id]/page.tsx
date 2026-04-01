@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
+import { AppLayout } from '@/components/app-layout'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,8 +28,8 @@ import { AddPaymentDialog } from '@/components/add-payment-dialog'
 import { AddNoteDialog } from '@/components/add-note-dialog'
 import { AddReplyDialog } from '@/components/add-reply-dialog'
 import { PaymentDetailDialog } from '@/components/payment-detail-dialog'
-import { ArrowLeft, Pencil, Trash2, CheckCircle2, Clock, AlertCircle, Sparkles } from 'lucide-react'
-import { useSearchParams } from 'next/navigation'
+import { Pencil, Trash2, CheckCircle2, Clock, AlertCircle, Sparkles } from 'lucide-react'
+import { useOrganization } from '@/contexts/organization-context'
 
 interface Grant {
   id: string
@@ -49,17 +50,19 @@ interface Grant {
 export default function GrantDetailsPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const { activeOrg } = useOrganization()
   const [grant, setGrant] = useState<Grant | null>(null)
   const [loading, setLoading] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [userRole, setUserRole] = useState<string>('')
+  const [isAdmin, setIsAdmin] = useState(false)
   const [expenses, setExpenses] = useState<any[]>([])
   const [selectedExpense, setSelectedExpense] = useState<any>(null)
   const [expenseDialogOpen, setExpenseDialogOpen] = useState(false)
   const [requirements, setRequirements] = useState<any[]>([])
   const [generatingRequirements, setGeneratingRequirements] = useState(false)
-  const [generatedRequirements, setGeneratedRequirements] = useState<any[]>([])
   const [specialConditions, setSpecialConditions] = useState<any[]>([])
   const [payments, setPayments] = useState<any[]>([])
   const [selectedPayment, setSelectedPayment] = useState<any>(null)
@@ -68,8 +71,8 @@ export default function GrantDetailsPage() {
   const [requirementDialogOpen, setRequirementDialogOpen] = useState(false)
   const [notes, setNotes] = useState<any[]>([])
   const [teamMembers, setTeamMembers] = useState<any[]>([])
-  const searchParams = useSearchParams()
-  const defaultTab = searchParams.get('tab') || 'summary'
+  
+  const defaultTab = searchParams?.get('tab') || 'summary'
 
   const totalExpenses = expenses.reduce((sum, exp) => sum + (parseFloat(exp.amount) || 0), 0)
   const remainingBudget = (grant?.award_amount || 0) - totalExpenses
@@ -79,31 +82,18 @@ export default function GrantDetailsPage() {
   }, 0)
 
   const loadGrant = async () => {
-    console.log('loadGrant called')
-
-    // Check auth first
     const { data: { user } } = await supabase.auth.getUser()
-    console.log('User:', user)
     
     if (!user) {
-      // Preserve the current URL for redirect after login
       const currentPath = window.location.pathname + window.location.search
       router.push(`/login?redirect=${encodeURIComponent(currentPath)}`)
       return
     }
-    console.log('User authenticated, loading grant...')
 
-    // Get user's role
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    console.log('Profile:', profile)
-
-    if (profile) {
-      setUserRole(profile.role)
+    // Set role from activeOrg
+    if (activeOrg) {
+      setIsAdmin(activeOrg.role === 'admin')
+      setUserRole(activeOrg.role)
     }
 
     const { data, error } = await supabase
@@ -111,8 +101,6 @@ export default function GrantDetailsPage() {
       .select('*')
       .eq('id', params.id)
       .single()
-
-    console.log('Grant data:', data, 'Error:', error)
 
     if (error) {
       console.error('Error loading grant:', error)
@@ -150,7 +138,6 @@ export default function GrantDetailsPage() {
     if (error) {
       console.error('Error loading requirements:', error)
     } else {
-      // Update status based on due date
       const updated = (data || []).map(req => {
         if (req.status !== 'completed' && req.due_date) {
           const dueDate = new Date(req.due_date)
@@ -195,52 +182,42 @@ export default function GrantDetailsPage() {
 
   const loadNotes = async () => {
     try {
-      console.log('Loading notes for grant:', params.id)
-      
       const { data, error } = await supabase
         .from('grant_notes')
         .select('*')
         .eq('grant_id', params.id)
         .order('created_at', { ascending: false })
 
-      console.log('Notes query result:', { data, error })
-
       if (error) {
-        console.error('Supabase error details:', JSON.stringify(error, null, 2))
+        console.error('Error loading notes:', error)
         setNotes([])
         return
       }
 
       if (!data || data.length === 0) {
-        console.log('No notes found')
         setNotes([])
         return
       }
 
-      // Load author info, replies, and recipients for each note
       const notesWithDetails = await Promise.all(
         data.map(async (note) => {
-          // Load note author
           const { data: author } = await supabase
             .from('user_profiles')
             .select('first_name, last_name')
             .eq('id', note.created_by_user_id)
             .single()
 
-          // Load recipients
           const { data: recipients } = await supabase
             .from('note_recipients')
             .select('*, recipient:user_profiles!note_recipients_user_id_fkey(first_name, last_name)')
             .eq('note_id', note.id)
 
-          // Load replies with authors
           const { data: repliesData } = await supabase
             .from('grant_note_replies')
             .select('*')
             .eq('note_id', note.id)
             .order('created_at', { ascending: true })
 
-          // Load reply authors
           const repliesWithAuthors = await Promise.all(
             (repliesData || []).map(async (reply) => {
               const { data: replyAuthor } = await supabase
@@ -265,7 +242,6 @@ export default function GrantDetailsPage() {
         })
       )
 
-      console.log('Notes with details:', notesWithDetails)
       setNotes(notesWithDetails)
     } catch (err) {
       console.error('Exception loading notes:', err)
@@ -275,151 +251,142 @@ export default function GrantDetailsPage() {
 
   const loadTeamMembers = async () => {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('organization_id')
-      .eq('id', user.id)
-      .single()
-
-    if (!profile) return
+    if (!user || !activeOrg) return
 
     const { data, error } = await supabase
-      .from('user_profiles')
-      .select('id, first_name, last_name, email')
-      .eq('organization_id', profile.organization_id)
-      .order('first_name')
-
-    console.log('Team members loaded:', data)
+      .from('user_organization_memberships')
+      .select('user_id')
+      .eq('organization_id', activeOrg.id)
 
     if (error) {
-      console.error('Error loading team members:', error)
-    } else {
-      setTeamMembers(data || [])
+      console.error('Error loading memberships:', error)
+      return
     }
+
+    const userIds = data.map(m => m.user_id)
+
+    const { data: profiles } = await supabase
+      .from('user_profiles')
+      .select('id, first_name, last_name, email')
+      .in('id', userIds)
+      .order('first_name')
+
+    setTeamMembers(profiles || [])
   }
 
   const handleGenerateRequirements = async () => {
-  if (!grant?.award_letter_url) return
-  
-  setGeneratingRequirements(true)
-  
-  try {
-    // Download the award letter
-    const { data: fileData, error: downloadError } = await supabase.storage
-      .from('award-letters')
-      .download(grant.award_letter_url)
+    if (!grant?.award_letter_url) return
     
-    if (downloadError) {
-      alert('Error downloading award letter: ' + downloadError.message)
-      setGeneratingRequirements(false)
-      return
-    }
+    setGeneratingRequirements(true)
     
-    // Convert to base64
-    const base64 = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => {
-        const result = reader.result as string
-        resolve(result.split(',')[1])
+    try {
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from('award-letters')
+        .download(grant.award_letter_url)
+      
+      if (downloadError) {
+        alert('Error downloading award letter: ' + downloadError.message)
+        setGeneratingRequirements(false)
+        return
       }
-      reader.onerror = reject
-      reader.readAsDataURL(fileData)
-    })
-    
-    // Determine media type
-    const mediaType = grant.award_letter_name?.endsWith('.pdf') 
-      ? 'application/pdf' 
-      : 'image/jpeg'
-    
-    // Call AI analysis API
-    const response = await fetch('/api/analyze-award-letter', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        file_data: base64,
-        media_type: mediaType,
-        grant_info: {
-          grant_name: grant.grant_name,
-          funding_agency: grant.funding_agency,
-          award_amount: grant.award_amount,
-          period_start: grant.period_start,
-          period_end: grant.period_end
+      
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => {
+          const result = reader.result as string
+          resolve(result.split(',')[1])
         }
+        reader.onerror = reject
+        reader.readAsDataURL(fileData)
       })
-    })
-    
-    const data = await response.json()
-    
-    if (data.content && data.content[0]?.text) {
-      const jsonText = data.content[0].text.trim()
-      const cleanJson = jsonText.replace(/```json\n?|\n?```/g, '').trim()
-      const extracted = JSON.parse(cleanJson)
       
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      const mediaType = grant.award_letter_name?.endsWith('.pdf') 
+        ? 'application/pdf' 
+        : 'image/jpeg'
       
-      let reqCount = 0
-      let condCount = 0
+      const response = await fetch('/api/analyze-award-letter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          file_data: base64,
+          media_type: mediaType,
+          grant_info: {
+            grant_name: grant.grant_name,
+            funding_agency: grant.funding_agency,
+            award_amount: grant.award_amount,
+            period_start: grant.period_start,
+            period_end: grant.period_end
+          }
+        })
+      })
       
-      // Save requirements
-      if (extracted.requirements && extracted.requirements.length > 0) {
-        const requirementsToInsert = extracted.requirements.map((req: any) => ({
-          grant_id: grant.id,
-          created_by_user_id: user.id,
-          title: req.title,
-          description: req.description || null,
-          due_date: req.due_date || null,
-          priority: req.priority || 'medium',
-          status: 'open',
-          policy_source: req.policy_source || null,
-          policy_citation: req.policy_citation || null
-        }))
+      const data = await response.json()
+      
+      if (data.content && data.content[0]?.text) {
+        const jsonText = data.content[0].text.trim()
+        const cleanJson = jsonText.replace(/```json\n?|\n?```/g, '').trim()
+        const extracted = JSON.parse(cleanJson)
         
-        const { error: reqError } = await supabase
-          .from('compliance_requirements')
-          .insert(requirementsToInsert)
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
         
-        if (!reqError) {
-          reqCount = requirementsToInsert.length
+        let reqCount = 0
+        let condCount = 0
+        
+        if (extracted.requirements && extracted.requirements.length > 0) {
+          const requirementsToInsert = extracted.requirements.map((req: any) => ({
+            grant_id: grant.id,
+            created_by_user_id: user.id,
+            title: req.title,
+            description: req.description || null,
+            due_date: req.due_date || null,
+            priority: req.priority || 'medium',
+            status: 'open',
+            policy_source: req.policy_source || null,
+            policy_citation: req.policy_citation || null
+          }))
+          
+          const { error: reqError } = await supabase
+            .from('compliance_requirements')
+            .insert(requirementsToInsert)
+          
+          if (!reqError) {
+            reqCount = requirementsToInsert.length
+          }
         }
-      }
-      
-      // Save special conditions
-      if (extracted.special_conditions && extracted.special_conditions.length > 0) {
-        const conditionsToInsert = extracted.special_conditions.map((cond: any) => ({
-          grant_id: grant.id,
-          title: cond.title,
-          description: cond.description,
-          risk_level: cond.risk_level || 'medium',
-          applies_to: cond.applies_to || 'all',
-          restriction_type: cond.restriction_type || 'requirement',
-          ai_generated: true
-        }))
         
-        const { error: condError } = await supabase
-          .from('special_conditions')
-          .insert(conditionsToInsert)
-        
-        if (!condError) {
-          condCount = conditionsToInsert.length
+        if (extracted.special_conditions && extracted.special_conditions.length > 0) {
+          const conditionsToInsert = extracted.special_conditions.map((cond: any) => ({
+            grant_id: grant.id,
+            title: cond.title,
+            description: cond.description,
+            risk_level: cond.risk_level || 'medium',
+            applies_to: cond.applies_to || 'all',
+            restriction_type: cond.restriction_type || 'requirement',
+            ai_generated: true
+          }))
+          
+          const { error: condError } = await supabase
+            .from('special_conditions')
+            .insert(conditionsToInsert)
+          
+          if (!condError) {
+            condCount = conditionsToInsert.length
+          }
         }
+        
+        alert(`✨ Generated ${reqCount} compliance requirements and ${condCount} special conditions from your award letter!`)
+        loadRequirements()
+        loadSpecialConditions()
+        loadGrant()
       }
-      
-      alert(`✨ Generated ${reqCount} compliance requirements and ${condCount} special conditions from your award letter!`)
-      loadRequirements()
-      loadSpecialConditions()
-      loadGrant() // Refresh to show special conditions
+    } catch (error) {
+      console.error('Generation error:', error)
+      alert('Could not generate requirements. Please try adding them manually.')
+    } finally {
+      setGeneratingRequirements(false)
     }
-  } catch (error) {
-    console.error('Generation error:', error)
-    alert('Could not generate requirements. Please try adding them manually.')
-  } finally {
-    setGeneratingRequirements(false)
   }
-}
-
 
   useEffect(() => {
     loadGrant()
@@ -443,7 +410,7 @@ export default function GrantDetailsPage() {
       alert('Error deleting grant: ' + error.message)
       setDeleting(false)
     } else {
-      router.push('/dashboard')
+      router.push('/grants')
     }
   }
 
@@ -536,63 +503,15 @@ export default function GrantDetailsPage() {
   const totalPayments = payments.reduce((sum, payment) => sum + (parseFloat(payment.amount) || 0), 0)
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <Button 
-            variant="ghost" 
-            onClick={() => router.push('/dashboard')}
-            className="mb-2"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
-          <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900">{grant.grant_name}</h1>
-              <p className="text-slate-600 mt-1">{grant.funding_agency}</p>
-            </div>
-            {userRole !== 'viewer' && (
-              <div className="flex gap-2">
-                <Button onClick={() => setEditOpen(true)} variant="outline">
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Edit
-                </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive">
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will permanently delete this grant and all associated data. This action cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction 
-                        onClick={handleDelete}
-                        disabled={deleting}
-                        className="bg-red-600 hover:bg-red-700"
-                      >
-                        {deleting ? 'Deleting...' : 'Delete Grant'}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Tabs defaultValue={defaultTab} className="w-full">
-          <div className="mb-6 overflow-x-auto overflow-y-hidden border-b border-slate-300 pb-3">
+    <AppLayout
+      title={grant.grant_name}
+      subtitle={grant.funding_agency}
+      showBackButton={true}
+      backUrl="/grants"
+      showSettings={isAdmin}
+    >
+      <Tabs defaultValue={defaultTab} className="w-full">
+        <div className="mb-6 overflow-x-auto overflow-y-hidden border-b border-slate-300 pb-3">
             <TabsList className="inline-flex w-full min-w-max lg:grid lg:grid-cols-6 lg:w-full h-auto p-0 bg-transparent gap-0">
               <TabsTrigger 
                 value="summary" 
@@ -1267,8 +1186,8 @@ export default function GrantDetailsPage() {
             </Card>
           </TabsContent>
         </Tabs>
-      </main>
 
+      {/* Keep all your existing dialogs at the bottom */}
       {selectedExpense && (
         <ExpenseDetailDialog
           expense={selectedExpense}
@@ -1276,18 +1195,14 @@ export default function GrantDetailsPage() {
           onOpenChange={setExpenseDialogOpen}
           onExpenseUpdated={async () => {
             await loadExpenses()
-            
-            // Reload the selected expense to show updates in dialog
             const { data: updated } = await supabase
               .from('expenses')
               .select('*, expense_documents(count)')
               .eq('id', selectedExpense.id)
               .single()
-            
             if (updated) {
               setSelectedExpense(updated)
             }
-            
             loadGrant()
           }}
           userRole={userRole}
@@ -1310,18 +1225,14 @@ export default function GrantDetailsPage() {
           onOpenChange={setPaymentDialogOpen}
           onPaymentUpdated={async () => {
             await loadPayments()
-            
-            // Reload the selected payment to show updates in dialog
             const { data: updated } = await supabase
               .from('payments_received')
               .select('*')
               .eq('id', selectedPayment.id)
               .single()
-            
             if (updated) {
               setSelectedPayment(updated)
             }
-            
             loadGrant()
           }}
           userRole={userRole}
@@ -1335,23 +1246,19 @@ export default function GrantDetailsPage() {
           onOpenChange={setRequirementDialogOpen}
           onRequirementUpdated={async () => {
             await loadRequirements()
-            
-            // Reload the selected requirement to show updates in dialog
             const { data: updated } = await supabase
               .from('compliance_requirements')
               .select('*')
               .eq('id', selectedRequirement.id)
               .single()
-            
             if (updated) {
               setSelectedRequirement(updated)
             }
-            
             loadGrant()
           }}
           userRole={userRole}
         />
       )}
-    </div>
+    </AppLayout>
   )
 }

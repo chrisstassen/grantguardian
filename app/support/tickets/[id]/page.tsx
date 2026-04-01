@@ -8,6 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, Paperclip, AlertCircle, CheckCircle2, Clock } from 'lucide-react'
 import { useOrganization } from '@/contexts/organization-context'
+import { SupportTicketNotes } from '@/components/support-ticket-notes'
+import { AppLayout } from '@/components/app-layout'
 import {
   Select,
   SelectContent,
@@ -326,22 +328,11 @@ export default function TicketDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b border-slate-200">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <Button 
-            variant="ghost" 
-            onClick={() => router.back()}
-            className="mb-2"
-        >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-        </Button>
-          <h1 className="text-3xl font-bold text-slate-900">Support Ticket</h1>
-        </div>
-      </header>
-
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+  <AppLayout
+    title={ticket.subject}
+    showBackButton={true}
+  >
+    <div className="space-y-6">
         {/* Ticket Header */}
         <Card>
           <CardHeader>
@@ -394,35 +385,103 @@ export default function TicketDetailPage() {
               </div>
             )}
 
-            {/* GrantGuardian Status (visible after escalation) */}
-            {ticket.status === 'submitted_to_grantguardian' || ticket.status === 'grantguardian_processing_complete' ? (
-              <div className="pt-4 border-t">
-                <h3 className="font-semibold text-slate-900 mb-2">GrantGuardian Status</h3>
-                {isSystemAdmin ? (
-                  <Select
-                    value={ticket.grantguardian_status}
-                    onValueChange={handleGrantGuardianStatusChange}
-                    disabled={updating}
-                  >
-                    <SelectTrigger className="w-64">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="submitted">Submitted</SelectItem>
-                      <SelectItem value="investigating">Investigating</SelectItem>
-                      <SelectItem value="under_development">Under Development</SelectItem>
-                      <SelectItem value="testing">Testing</SelectItem>
-                      <SelectItem value="on_hold">On Hold</SelectItem>
-                      <SelectItem value="complete">Complete</SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Badge variant="outline" className="text-sm">
-                    {ticket.grantguardian_status.replace(/_/g, ' ')}
-                  </Badge>
+            {/* GrantGuardian Status & Actions */}
+                {(ticket.status === 'submitted_to_grantguardian' || ticket.status === 'grantguardian_processing_complete' || ticket.status !== 'closed') && (
+                    <div className="pt-4 border-t">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* GrantGuardian Status */}
+                        {(ticket.status === 'submitted_to_grantguardian' || ticket.status === 'grantguardian_processing_complete') && (
+                            <div>
+                            <h3 className="font-semibold text-slate-900 mb-2">GrantGuardian Status</h3>
+                            {isSystemAdmin ? (
+                                <Select
+                                value={ticket.grantguardian_status}
+                                onValueChange={handleGrantGuardianStatusChange}
+                                disabled={updating}
+                                >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="submitted">Submitted</SelectItem>
+                                    <SelectItem value="investigating">Investigating</SelectItem>
+                                    <SelectItem value="under_development">Under Development</SelectItem>
+                                    <SelectItem value="testing">Testing</SelectItem>
+                                    <SelectItem value="on_hold">On Hold</SelectItem>
+                                    <SelectItem value="complete">Complete</SelectItem>
+                                </SelectContent>
+                                </Select>
+                            ) : (
+                                <Badge variant="outline" className="text-sm">
+                                {ticket.grantguardian_status.replace(/_/g, ' ')}
+                                </Badge>
+                            )}
+                            </div>
+                        )}
+
+                        {/* Actions */}
+                        {ticket.status !== 'closed' && (
+                            <div>
+                            <h3 className="font-semibold text-slate-900 mb-2">Actions</h3>
+                            <div className="flex flex-col gap-2">
+                                {/* Org Admin can escalate */}
+                                {isOrgAdmin && ticket.status === 'open' && (
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                    <Button variant="default" disabled={updating} className="w-full">
+                                        Escalate to GrantGuardian Support
+                                    </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Escalate Ticket?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                        This will forward the ticket to the GrantGuardian support team for assistance.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={handleEscalate}>
+                                        Escalate Ticket
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                                )}
+
+                                {/* User, Org Admin, or System Admin can close */}
+                                {(currentUserId === ticket.user_id || isOrgAdmin || isSystemAdmin) && (
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                    <Button variant="outline" disabled={updating} className="w-full">
+                                        Close Ticket
+                                    </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Close Ticket?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                        This will mark the ticket as closed. Once closed, it cannot be reopened.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction
+                                        onClick={handleClose}
+                                        className="bg-slate-600 hover:bg-slate-700"
+                                        >
+                                        Close Ticket
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                                )}
+                            </div>
+                            </div>
+                        )}
+                        </div>
+                    </div>
                 )}
-              </div>
-            ) : null}
           </CardContent>
         </Card>
 
@@ -463,71 +522,12 @@ export default function TicketDetailPage() {
           </Card>
         )}
 
-        {/* Actions */}
-        {ticket.status !== 'closed' && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Actions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-3">
-                {/* Org Admin can escalate */}
-                {isOrgAdmin && ticket.status === 'open' && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="default" disabled={updating}>
-                        Escalate to GrantGuardian Support
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Escalate Ticket?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This will forward the ticket to the GrantGuardian support team for assistance.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleEscalate}>
-                          Escalate Ticket
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                )}
-
-                {/* User or Admin can close */}
-                {(currentUserId === ticket.user_id || isOrgAdmin) && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="outline" disabled={updating}>
-                        Close Ticket
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Close Ticket?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This will mark the ticket as closed. Once closed, it cannot be reopened.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={handleClose}
-                          className="bg-slate-600 hover:bg-slate-700"
-                        >
-                          Close Ticket
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </main>
+        {/* Notes & Updates */}
+        <SupportTicketNotes 
+          ticketId={ticket.id} 
+          isSystemAdmin={isSystemAdmin}
+        />
     </div>
-  )
+    </AppLayout>
+)
 }

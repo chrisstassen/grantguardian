@@ -9,6 +9,7 @@ import { InviteTeamMemberDialog } from '@/components/invite-team-member-dialog'
 import { ArrowLeft, Copy, Check, Trash2, UserCog, Paperclip, LifeBuoy } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { useOrganization } from '@/contexts/organization-context'
+import { AppLayout } from '@/components/app-layout'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -227,23 +228,12 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <Button 
-            variant="ghost" 
-            onClick={() => router.push('/dashboard')}
-            className="mb-2"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
-          <h1 className="text-3xl font-bold text-slate-900">Organization Settings</h1>
-          <p className="text-slate-600 mt-1">{organizationName}</p>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+  <AppLayout 
+    title="Organization Settings" 
+    subtitle={organizationName}
+    showBackButton={true}
+    showSettings={false}  // Don't show Settings button on the Settings page itself
+  >
         {/* Invite Code */}
         <Card>
           <CardHeader>
@@ -338,7 +328,6 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </div>
-      </main>
-    </div>
-  )
+      </AppLayout>
+)
 }

@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { ArrowLeft, Search, Building2, User } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { AdminLayout } from '@/components/admin-layout'
 
 export default function AdminTicketsPage() {
   const router = useRouter()
@@ -127,23 +128,11 @@ export default function AdminTicketsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <Button 
-            variant="ghost" 
-            onClick={() => router.push('/admin')}
-            className="mb-2"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Admin Dashboard
-          </Button>
-          <h1 className="text-3xl font-bold text-slate-900">Support Tickets</h1>
-          <p className="text-slate-600 mt-1">Manage escalated support requests</p>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <AdminLayout 
+    title="Users" 
+    subtitle="Manage all users in the system"
+    showBackButton={true}
+  >
         {/* Search and Filter */}
         <Card className="mb-6">
           <CardContent className="pt-6">
@@ -244,7 +233,6 @@ export default function AdminTicketsPage() {
             </div>
           </CardContent>
         </Card>
-      </main>
-    </div>
-  )
+      </AdminLayout>
+)
 }
