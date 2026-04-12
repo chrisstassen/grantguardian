@@ -45,34 +45,10 @@ export default function AdminTicketsPage() {
   }
 
   const loadTickets = async () => {
-    // Load all support tickets
-    const { data } = await supabase
-      .from('support_tickets')
-      .select('id, subject, description, status, priority, ticket_type, grantguardian_status, created_at, organization_id, user_id')
-      .order('created_at', { ascending: false })
-
-    if (data && data.length > 0) {
-      // Load related data
-      const orgIds = [...new Set(data.map(t => t.organization_id))]
-      const userIds = [...new Set(data.map(t => t.user_id))]
-
-      const { data: orgs } = await supabase
-        .from('organizations')
-        .select('id, name')
-        .in('id', orgIds)
-
-      const { data: users } = await supabase
-        .from('user_profiles')
-        .select('id, first_name, last_name, email')
-        .in('id', userIds)
-
-      const ticketsWithDetails = data.map(ticket => ({
-        ...ticket,
-        organization: orgs?.find(o => o.id === ticket.organization_id),
-        submitter: users?.find(u => u.id === ticket.user_id)
-      }))
-
-      setTickets(ticketsWithDetails)
+    const res = await fetch('/api/admin/tickets')
+    const json = await res.json()
+    if (json.tickets) {
+      setTickets(json.tickets)
     }
   }
 
@@ -128,9 +104,9 @@ export default function AdminTicketsPage() {
   }
 
   return (
-  <AdminLayout 
-    title="Users" 
-    subtitle="Manage all users in the system"
+  <AdminLayout
+    title="Support Tickets"
+    subtitle="View and manage all support tickets"
     showBackButton={true}
   >
         {/* Search and Filter */}

@@ -94,36 +94,20 @@ export default function DashboardPage() {
   const loadGrants = async () => {
     if (!activeOrg) return
 
-    const { data: grantsData, error: grantsError } = await supabase
-      .from('grants')
-      .select('*')
-      .eq('organization_id', activeOrg.id)
-      .order('created_at', { ascending: false })
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
 
-    if (grantsError) {
-      console.error('Error loading grants:', grantsError)
+    const res = await fetch(`/api/user/grants?orgId=${activeOrg.id}`, {
+      headers: { Authorization: `Bearer ${session.access_token}` }
+    })
+
+    if (!res.ok) {
+      console.error('Error loading grants:', await res.text())
       return
     }
 
-    // Load expenses for each grant
-    const grantsWithExpenses = await Promise.all(
-      (grantsData || []).map(async (grant) => {
-        const { data: expenses } = await supabase
-          .from('expenses')
-          .select('amount')
-          .eq('grant_id', grant.id)
-        
-        const totalExpenses = expenses?.reduce((sum, exp) => sum + parseFloat(exp.amount), 0) || 0
-        
-        return {
-          ...grant,
-          total_expenses: totalExpenses,
-          balance: (grant.award_amount || 0) - totalExpenses
-        }
-      })
-    )
-
-    setGrants(grantsWithExpenses)
+    const json = await res.json()
+    setGrants(json.grants ?? [])
   }
 
   const handleSignOut = async () => {

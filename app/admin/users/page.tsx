@@ -45,29 +45,10 @@ export default function AdminUsersPage() {
   }
 
   const loadUsers = async () => {
-    // Load all users
-    const { data: profiles } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .order('created_at', { ascending: false })
-
-    if (profiles) {
-      // Load organization memberships for each user
-      const usersWithOrgs = await Promise.all(
-        profiles.map(async (profile) => {
-          const { data: memberships } = await supabase
-            .from('user_organization_memberships')
-            .select('organization_id, role, organizations(name)')
-            .eq('user_id', profile.id)
-
-          return {
-            ...profile,
-            organizations: memberships || []
-          }
-        })
-      )
-
-      setUsers(usersWithOrgs)
+    const res = await fetch('/api/admin/users')
+    const json = await res.json()
+    if (json.users) {
+      setUsers(json.users)
     }
   }
 

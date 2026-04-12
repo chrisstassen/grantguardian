@@ -25,83 +25,93 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadOrganizations()
-    
-    // Listen for auth changes and reload orgs
+    // Do NOT call loadOrganizations() directly on mount.
+    // Instead, wait for INITIAL_SESSION — this fires once the Supabase client has
+    // restored the session from storage, guaranteeing auth.getUser() will succeed.
+    // This prevents the race condition where loadOrganizations() runs before the
+    // session is available and incorrectly clears the active org.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-        console.log('OrganizationContext: Auth state changed:', event, !!session)
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        loadOrganizations()
-        } else if (event === 'SIGNED_OUT') {
+      console.log('OrganizationContext: Auth state changed:', event, !!session)
+
+      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        if (session) {
+          loadOrganizations()
+        } else {
+          // No session on initial load (user is not logged in)
+          setOrganizations([])
+          setActiveOrg(null)
+          setLoading(false)
+        }
+      } else if (event === 'SIGNED_OUT') {
         setOrganizations([])
         setActiveOrg(null)
         setLoading(false)
-        }
+      }
     })
 
-  return () => {
-    subscription.unsubscribe()
-  }
-}, [])
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [])
 
   const loadOrganizations = async () => {
-    setLoading(true) // Ensure loading is true while we work
-    
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    console.log('OrganizationContext: Loading orgs for user:', !!user, user?.id)
-    
-    if (!user) {
-        console.log('OrganizationContext: No user yet, waiting...')
+    setLoading(true)
+
+    // Use getSession() (cached, no server round-trip) to get the access token
+    const { data: { session } } = await supabase.auth.getSession()
+
+    if (!session) {
+      console.log('OrganizationContext: No session, skipping org load')
+      setOrganizations([])
+      setActiveOrg(null)
+      setLoading(false)
+      return
+    }
+
+    console.log('OrganizationContext: Loading orgs for user:', session.user.id)
+
+    // Fetch via server-side route to bypass RLS on user_organization_memberships
+    try {
+      const res = await fetch('/api/user/organizations', {
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      })
+      const json = await res.json()
+
+      if (!res.ok) {
+        console.error('OrganizationContext: API error loading memberships:', json.error)
         setOrganizations([])
         setActiveOrg(null)
         setLoading(false)
         return
-    }
+      }
 
-    // Load all organizations user belongs to
-    const { data: memberships, error } = await supabase
-        .from('user_organization_memberships')
-        .select('organization_id, role, organizations(id, name)')
-        .eq('user_id', user.id)
+      const orgs: Organization[] = json.organizations ?? []
+      console.log('OrganizationContext: Orgs loaded:', orgs)
 
-    console.log('OrganizationContext: Memberships loaded:', memberships, error)
-
-    if (memberships && memberships.length > 0) {
-        const orgs = memberships.map(m => ({
-        id: m.organization_id,
-        name: (m.organizations as any).name,
-        role: m.role
-        }))
-        
-        console.log('OrganizationContext: Formatted orgs:', orgs)
-        
+      if (orgs.length > 0) {
         setOrganizations(orgs)
 
-        // Set active org from localStorage or use first org
+        // Restore previously active org from localStorage, or fall back to first
         const savedOrgId = getActiveOrgId()
-        const orgToActivate = savedOrgId 
-        ? orgs.find(o => o.id === savedOrgId) || orgs[0]
-        : orgs[0]
+        const orgToActivate = (savedOrgId && orgs.find(o => o.id === savedOrgId)) || orgs[0]
 
         console.log('OrganizationContext: Active org set to:', orgToActivate)
-
-        if (orgToActivate) {
         setActiveOrg(orgToActivate)
         setActiveOrgId(orgToActivate.id)
-        }
-        
-        // Wait a tiny bit to ensure state has updated
-        await new Promise(resolve => setTimeout(resolve, 50))
-    } else {
-        console.log('OrganizationContext: No memberships found')
+      } else {
+        console.log('OrganizationContext: No memberships found for user')
         setOrganizations([])
         setActiveOrg(null)
+      }
+    } catch (err) {
+      console.error('OrganizationContext: Unexpected error loading orgs:', err)
+      setOrganizations([])
+      setActiveOrg(null)
     }
 
-    setLoading(false) // Only set loading false at the very end
+    setLoading(false)
     console.log('OrganizationContext: Loading complete')
-    }
+  }
 
   const switchOrganization = (orgId: string) => {
     const org = organizations.find(o => o.id === orgId)

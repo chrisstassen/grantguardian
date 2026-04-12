@@ -103,7 +103,7 @@ export default function GrantDetailsPage() {
       .single()
 
     if (error) {
-      console.error('Error loading grant:', error)
+      console.error('Error loading grant:', error.message, error.code, error.details)
       setLoading(false)
     } else {
       setGrant(data)
@@ -122,7 +122,7 @@ export default function GrantDetailsPage() {
       .order('expense_date', { ascending: false })
 
     if (error) {
-      console.error('Error loading expenses:', error)
+      console.error('Error loading expenses:', error.message, error.code, error.details)
     } else {
       setExpenses(data || [])
     }
@@ -136,7 +136,7 @@ export default function GrantDetailsPage() {
       .order('due_date', { ascending: true })
 
     if (error) {
-      console.error('Error loading requirements:', error)
+      console.error('Error loading requirements:', error.message, error.code, error.details)
     } else {
       const updated = (data || []).map(req => {
         if (req.status !== 'completed' && req.due_date) {
@@ -160,7 +160,7 @@ export default function GrantDetailsPage() {
       .order('risk_level', { ascending: false })
 
     if (error) {
-      console.error('Error loading special conditions:', error)
+      console.error('Error loading special conditions:', error.message, error.code, error.details)
     } else {
       setSpecialConditions(data || [])
     }
@@ -174,7 +174,7 @@ export default function GrantDetailsPage() {
       .order('received_date', { ascending: false })
 
     if (error) {
-      console.error('Error loading payments:', error)
+      console.error('Error loading payments:', error.message, error.code, error.details)
     } else {
       setPayments(data || [])
     }
@@ -189,7 +189,7 @@ export default function GrantDetailsPage() {
         .order('created_at', { ascending: false })
 
       if (error) {
-        console.error('Error loading notes:', error)
+        console.error('Error loading notes:', error.message, error.code, error.details)
         setNotes([])
         return
       }
@@ -507,7 +507,7 @@ export default function GrantDetailsPage() {
       title={grant.grant_name}
       subtitle={grant.funding_agency}
       showBackButton={true}
-      backUrl="/grants"
+      backUrl="/dashboard"
       showSettings={isAdmin}
     >
       <Tabs defaultValue={defaultTab} className="w-full">

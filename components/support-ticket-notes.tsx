@@ -165,7 +165,7 @@ export function SupportTicketNotes({ ticketId, isSystemAdmin }: SupportTicketNot
     return
   }
 
-  const { error } = await supabase
+  const { data: note, error } = await supabase
     .from('support_ticket_notes')
     .insert([{
       ticket_id: ticketId,
@@ -174,11 +174,75 @@ export function SupportTicketNotes({ ticketId, isSystemAdmin }: SupportTicketNot
       is_private: isPrivateNote,
       mentioned_user_ids: selectedMentions
     }])
+    .select()
+    .single()
 
   if (error) {
     console.error('Error creating note:', error)
     alert('Error creating note: ' + error.message)
   } else {
+    // Send notifications to @ mentioned users
+    if (selectedMentions.length > 0 && note) {
+      // Fetch the current user's name and the ticket subject in parallel
+      const [profileResult, ticketResult] = await Promise.all([
+        supabase
+          .from('user_profiles')
+          .select('first_name, last_name')
+          .eq('id', user.id)
+          .single(),
+        supabase
+          .from('support_tickets')
+          .select('subject')
+          .eq('id', ticketId)
+          .single()
+      ])
+
+      const senderName = profileResult.data
+        ? `${profileResult.data.first_name} ${profileResult.data.last_name}`
+        : 'Someone'
+
+      const ticketSubject = ticketResult.data?.subject || 'a support ticket'
+
+      // Create in-app notifications for all mentioned users
+      const notifications = selectedMentions.map(userId => ({
+        user_id: userId,
+        type: 'ticket_note_mention',
+        title: 'You were mentioned in a ticket note',
+        message: `${senderName} mentioned you in a note on ticket: "${ticketSubject}"`,
+        link: `/support/tickets/${ticketId}`
+      }))
+
+      const { error: notifError } = await supabase
+        .from('notifications')
+        .insert(notifications)
+
+      if (notifError) {
+        console.error('Error creating in-app notifications:', notifError)
+      }
+
+      // Send email notifications to each mentioned user
+      for (const mentionedUserId of selectedMentions) {
+        const recipient = availableUsers.find(u => u.id === mentionedUserId)
+        if (recipient?.email) {
+          try {
+            await fetch('/api/send-ticket-mention-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                recipientEmail: recipient.email,
+                recipientName: `${recipient.first_name} ${recipient.last_name}`,
+                senderName,
+                ticketSubject,
+                ticketId
+              })
+            })
+          } catch (emailErr) {
+            console.error('Error sending mention email to', recipient.email, emailErr)
+          }
+        }
+      }
+    }
+
     setNewNoteContent('')
     setIsPrivateNote(false)
     setSelectedMentions([])
@@ -413,9 +477,9 @@ export function SupportTicketNotes({ ticketId, isSystemAdmin }: SupportTicketNot
             
             {/* Mention Dropdown */}
             {showMentionDropdown && (
-                <div className="absolute bottom-full mb-2 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto z-10">
+                <div className="absolute bottom-full mb-2 w-full bg-slate-300 border border-slate-400 rounded-lg shadow-xl max-h-48 overflow-y-auto z-10">
                 {getFilteredUsers().length === 0 ? (
-                    <div className="p-3 text-sm text-slate-500">
+                    <div className="p-3 text-sm text-slate-600">
                     {isPrivateNote ? 'No system admins found' : 'No users found'}
                     </div>
                 ) : (
@@ -424,7 +488,7 @@ export function SupportTicketNotes({ ticketId, isSystemAdmin }: SupportTicketNot
                         key={user.id}
                         type="button"
                         onClick={() => insertMention(user)}
-                        className="w-full text-left px-3 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-0"
+                        className="w-full text-left px-3 py-2 hover:bg-slate-400 border-b border-slate-400 last:border-0 bg-slate-300"
                     >
                         <div className="font-medium text-slate-900">
                         {user.first_name} {user.last_name}

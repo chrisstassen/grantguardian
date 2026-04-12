@@ -44,35 +44,10 @@ export default function AdminOrganizationsPage() {
   }
 
   const loadOrganizations = async () => {
-    // Load all organizations with member counts
-    const { data: orgs } = await supabase
-      .from('organizations')
-      .select('*')
-      .order('name')
-
-    if (orgs) {
-      // Load member counts for each org
-      const orgsWithCounts = await Promise.all(
-        orgs.map(async (org) => {
-          const { count } = await supabase
-            .from('user_organization_memberships')
-            .select('*', { count: 'exact', head: true })
-            .eq('organization_id', org.id)
-
-          const { count: ticketCount } = await supabase
-            .from('support_tickets')
-            .select('*', { count: 'exact', head: true })
-            .eq('organization_id', org.id)
-
-          return {
-            ...org,
-            member_count: count || 0,
-            ticket_count: ticketCount || 0
-          }
-        })
-      )
-
-      setOrganizations(orgsWithCounts)
+    const res = await fetch('/api/admin/organizations')
+    const json = await res.json()
+    if (json.organizations) {
+      setOrganizations(json.organizations)
     }
   }
 
@@ -89,9 +64,9 @@ export default function AdminOrganizationsPage() {
   }
 
   return (
-  <AdminLayout 
-    title="Users" 
-    subtitle="Manage all users in the system"
+  <AdminLayout
+    title="Organizations"
+    subtitle="View and manage all organizations"
     showBackButton={true}
   >
         {/* Search */}
