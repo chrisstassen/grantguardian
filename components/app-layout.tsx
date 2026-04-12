@@ -1,10 +1,10 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { NotificationsDropdown } from '@/components/notifications-dropdown'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, ShieldCheck, LayoutDashboard } from 'lucide-react'
 import { useOrganization } from '@/contexts/organization-context'
 
 interface AppLayoutProps {
@@ -25,6 +25,7 @@ export function AppLayout({
   showSettings = false
 }: AppLayoutProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const { activeOrg } = useOrganization()
 
   const handleSignOut = async () => {
@@ -37,9 +38,29 @@ export function AppLayout({
       {/* Main Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">GrantGuardian</h1>
-            <p className="text-sm text-slate-600">{activeOrg?.name}</p>
+          <div className="flex items-center gap-6">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">GrantGuardian</h1>
+              <p className="text-sm text-slate-600">{activeOrg?.name}</p>
+            </div>
+            <nav className="hidden md:flex items-center gap-1">
+              <a
+                href="/dashboard"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors
+                  ${pathname === '/dashboard' ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
+              >
+                <LayoutDashboard className="h-4 w-4" />
+                Dashboard
+              </a>
+              <a
+                href="/compliance"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors
+                  ${pathname === '/compliance' ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
+              >
+                <ShieldCheck className="h-4 w-4" />
+                Compliance
+              </a>
+            </nav>
           </div>
           <div className="flex items-center gap-2">
             <NotificationsDropdown />

@@ -11,6 +11,7 @@ import { Bell } from 'lucide-react'
 import { OrganizationSwitcher } from '@/components/organization-switcher'
 import { useOrganization } from '@/contexts/organization-context'
 import { NotificationsDropdown } from '@/components/notifications-dropdown'
+import { ComplianceHealthPanel } from '@/components/compliance-health-panel'
 
 interface Grant {
   id: string
@@ -181,7 +182,8 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {/* Stats row */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <Card>
             <CardHeader>
               <CardTitle>Active Grants</CardTitle>
@@ -217,6 +219,11 @@ export default function DashboardPage() {
               <p className="text-4xl font-bold">{grants.length}</p>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Compliance health panel */}
+        <div className="mb-6">
+          <ComplianceHealthPanel />
         </div>
 
         <Card>
