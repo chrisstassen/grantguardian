@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
           severity: req.priority === 'critical' ? 'critical' : req.priority === 'high' ? 'high' : 'medium',
           title: `Overdue: ${req.title}`,
           description: `This requirement was due on ${dueDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} and has not been marked complete.`,
-          link: `/grants/${grant.id}?tab=compliance`
+          link: `/grants/${grant.id}?tab=requirements`
         })
       } else if (dueDate <= in7Days) {
         issues.push({
@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
           severity: 'high',
           title: `Due in ${daysUntilDue} day${daysUntilDue === 1 ? '' : 's'}: ${req.title}`,
           description: `This requirement is due on ${dueDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}. Immediate action required.`,
-          link: `/grants/${grant.id}?tab=compliance`
+          link: `/grants/${grant.id}?tab=requirements`
         })
       } else if (dueDate <= in30Days) {
         issues.push({
@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
           severity: 'medium',
           title: `Due in ${daysUntilDue} days: ${req.title}`,
           description: `This requirement is due on ${dueDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.`,
-          link: `/grants/${grant.id}?tab=compliance`
+          link: `/grants/${grant.id}?tab=requirements`
         })
       }
     }
