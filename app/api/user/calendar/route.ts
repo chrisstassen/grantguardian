@@ -109,5 +109,14 @@ export async function GET(request: NextRequest) {
   events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
   console.log('[Calendar] total events built:', events.length)
-  return NextResponse.json({ events, debug: { grantsFound: grants.length, requirementsFound: requirements?.length ?? 0 } })
+  return NextResponse.json({
+    events,
+    debug: {
+      grantsFound: grants.length,
+      grantIds,
+      allRequirementsFetched: allRequirements?.length ?? 0,
+      requirementsFound: requirements.length,
+      reqError: reqError ? { message: reqError.message, code: reqError.code } : null,
+    }
+  })
 }
