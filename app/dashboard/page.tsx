@@ -7,11 +7,11 @@ import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { AddGrantDialog } from '@/components/add-grant-dialog'
-import { Bell } from 'lucide-react'
 import { OrganizationSwitcher } from '@/components/organization-switcher'
 import { useOrganization } from '@/contexts/organization-context'
 import { NotificationsDropdown } from '@/components/notifications-dropdown'
 import { ComplianceHealthPanel } from '@/components/compliance-health-panel'
+import { ShieldCheck, CalendarDays, LayoutDashboard } from 'lucide-react'
 
 interface Grant {
   id: string
@@ -147,9 +147,25 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-slate-50">
       <header className="bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-slate-900">GrantGuardian</h1>
-            <OrganizationSwitcher />
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-4">
+              <h1 className="text-2xl font-bold text-slate-900">GrantGuardian</h1>
+              <OrganizationSwitcher />
+            </div>
+            <nav className="hidden md:flex items-center gap-1">
+              <a href="/dashboard" className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium bg-slate-100 text-slate-900">
+                <LayoutDashboard className="h-4 w-4" />
+                Dashboard
+              </a>
+              <a href="/compliance" className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors">
+                <ShieldCheck className="h-4 w-4" />
+                Compliance
+              </a>
+              <a href="/calendar" className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors">
+                <CalendarDays className="h-4 w-4" />
+                Calendar
+              </a>
+            </nav>
           </div>
           <div className="flex gap-2 items-center">
             <NotificationsDropdown />
