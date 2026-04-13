@@ -396,7 +396,7 @@ export default function GrantDetailsPage() {
     loadPayments()
     loadNotes()
     loadTeamMembers()
-  }, [params.id])
+  }, [params.id, activeOrg])
 
   const handleDelete = async () => {
     setDeleting(true)
@@ -571,7 +571,7 @@ export default function GrantDetailsPage() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Grant Overview</CardTitle>
-                  {isAdmin && (
+                  {userRole !== 'viewer' && (
                     <Button
                       variant="outline"
                       size="sm"
