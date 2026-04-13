@@ -134,12 +134,13 @@ export function AddExpenseChoiceDialog({ grantId, onExpenseAdded }: AddExpenseCh
       })
 
       const data = await response.json()
-      
-      if (data.content && data.content[0]?.text) {
-        const jsonText = data.content[0].text.trim()
-        const cleanJson = jsonText.replace(/```json\n?|\n?```/g, '').trim()
-        const extracted = JSON.parse(cleanJson)
-        
+
+      if (data.error) {
+        throw new Error(data.error)
+      }
+
+      const extracted = data.extracted
+      if (extracted) {
         setFormData({
           vendor: extracted.vendor || '',
           amount: extracted.amount?.toString() || '',
@@ -147,7 +148,7 @@ export function AddExpenseChoiceDialog({ grantId, onExpenseAdded }: AddExpenseCh
           description: extracted.description || '',
           category: extracted.category || ''
         })
-        
+
         setExtractedData(extracted)
         setUploadedFile(file)
         setSelectedFiles([file])
