@@ -4,7 +4,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { NotificationsDropdown } from '@/components/notifications-dropdown'
-import { ArrowLeft, ShieldCheck, LayoutDashboard } from 'lucide-react'
+import { ArrowLeft, ShieldCheck, LayoutDashboard, CalendarDays } from 'lucide-react'
 import { useOrganization } from '@/contexts/organization-context'
 
 interface AppLayoutProps {
@@ -59,6 +59,14 @@ export function AppLayout({
               >
                 <ShieldCheck className="h-4 w-4" />
                 Compliance
+              </a>
+              <a
+                href="/calendar"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors
+                  ${pathname === '/calendar' ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
+              >
+                <CalendarDays className="h-4 w-4" />
+                Calendar
               </a>
             </nav>
           </div>
