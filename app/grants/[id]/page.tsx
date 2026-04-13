@@ -569,7 +569,20 @@ export default function GrantDetailsPage() {
           <TabsContent value="summary" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Grant Overview</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Grant Overview</CardTitle>
+                  {isAdmin && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setEditOpen(true)}
+                      className="flex items-center gap-1.5"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      Edit Grant
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-6">
                 <div>
