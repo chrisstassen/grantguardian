@@ -19,7 +19,6 @@ interface CalendarEvent {
   grantName: string
   fundingAgency: string
   priority?: string
-  category?: string
   urgency: 'overdue' | 'critical' | 'upcoming' | 'future'
   daysUntil: number
   link: string
@@ -262,8 +261,8 @@ export default function CalendarPage() {
                         <Badge className={`text-xs border ${eventChipStyle(e.urgency, e.type)}`}>
                           {urgencyLabel(e)}
                         </Badge>
-                        {e.type === 'requirement' && e.category && (
-                          <Badge variant="outline" className="text-xs">{e.category}</Badge>
+                        {e.type === 'requirement' && e.priority && (
+                          <Badge variant="outline" className="text-xs">{e.priority}</Badge>
                         )}
                       </div>
                       <p className="text-xs text-slate-500 mt-0.5">{e.grantName} · {e.fundingAgency}</p>

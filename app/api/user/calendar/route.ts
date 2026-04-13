@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
   // Fetch all compliance requirements with due dates for these grants, then filter in JS
   const { data: allRequirements, error: reqError } = await supabaseAdmin
     .from('compliance_requirements')
-    .select('id, grant_id, title, due_date, priority, status, category')
+    .select('id, grant_id, title, due_date, priority, status')
     .in('grant_id', grantIds)
     .not('due_date', 'is', null)
     .order('due_date', { ascending: true })
@@ -76,7 +76,6 @@ export async function GET(request: NextRequest) {
       grantName: grant.grant_name,
       fundingAgency: grant.funding_agency,
       priority: req.priority,
-      category: req.category,
       urgency,
       daysUntil,
       link: `/grants/${req.grant_id}?tab=requirements`
