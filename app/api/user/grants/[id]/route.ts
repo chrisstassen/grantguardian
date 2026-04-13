@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // Verify JWT
   const authHeader = request.headers.get('authorization')
@@ -13,7 +13,7 @@ export async function PATCH(
   const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
   if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const grantId = params.id
+  const { id: grantId } = await params
 
   // Confirm the grant exists and get its org
   const { data: grant, error: grantError } = await supabaseAdmin
