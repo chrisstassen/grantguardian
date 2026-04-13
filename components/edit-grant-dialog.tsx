@@ -75,52 +75,38 @@ export function EditGrantDialog({ grant, open, onOpenChange, onGrantUpdated }: E
     e.preventDefault()
     setLoading(true)
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
       alert('You must be logged in')
       setLoading(false)
       return
     }
-
-    // Get user's organization for file paths
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('organization_id')
-      .eq('id', user.id)
-      .single()
 
     let awardLetterUrl = grant.award_letter_url
     let awardLetterName = grant.award_letter_name
 
     // Handle award letter deletion
     if (deleteAwardLetter && grant.award_letter_url) {
-      console.log('Deleting award letter:', grant.award_letter_url)
       const { error: deleteError } = await supabase.storage
         .from('award-letters')
         .remove([grant.award_letter_url])
-      
-      console.log('Delete result:', deleteError ? 'ERROR' : 'SUCCESS')
-      
       if (!deleteError) {
         awardLetterUrl = null
         awardLetterName = null
       }
     }
 
-    // Handle new award letter upload
-    if (newAwardLetterFile && profile?.organization_id) {
+    // Handle new award letter upload (use grant.id for the path since org_id isn't on user_profiles)
+    if (newAwardLetterFile) {
       setUploading(true)
-      
-      // Delete old file if exists
+
       if (grant.award_letter_url) {
-        await supabase.storage
-          .from('award-letters')
-          .remove([grant.award_letter_url])
+        await supabase.storage.from('award-letters').remove([grant.award_letter_url])
       }
-      
+
       const fileName = newAwardLetterFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')
-      const filePath = `${profile.organization_id}/${Date.now()}_${fileName}`
-      
+      const filePath = `${grant.id}/${Date.now()}_${fileName}`
+
       const { error: uploadError } = await supabase.storage
         .from('award-letters')
         .upload(filePath, newAwardLetterFile)
@@ -132,31 +118,35 @@ export function EditGrantDialog({ grant, open, onOpenChange, onGrantUpdated }: E
         awardLetterUrl = filePath
         awardLetterName = newAwardLetterFile.name
       }
-      
+
       setUploading(false)
     }
 
-    const { error } = await supabase
-      .from('grants')
-      .update({
+    const res = await fetch(`/api/user/grants/${grant.id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`
+      },
+      body: JSON.stringify({
         grant_name: formData.grant_name,
         funding_agency: formData.funding_agency,
         program_type: formData.program_type || null,
         award_number: formData.award_number || null,
-        award_amount: formData.award_amount ? parseFloat(formData.award_amount) : null,
+        award_amount: formData.award_amount || null,
         period_start: formData.period_start || null,
         period_end: formData.period_end || null,
         status: formData.status,
         award_letter_url: awardLetterUrl,
-        award_letter_name: awardLetterName,
-        updated_at: new Date().toISOString()
+        award_letter_name: awardLetterName
       })
-      .eq('id', grant.id)
+    })
 
     setLoading(false)
 
-    if (error) {
-      alert('Error updating grant: ' + error.message)
+    if (!res.ok) {
+      const data = await res.json()
+      alert('Error updating grant: ' + (data.error || res.statusText))
     } else {
       onOpenChange(false)
       onGrantUpdated()
