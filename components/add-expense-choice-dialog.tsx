@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { FileText, Sparkles, Upload } from 'lucide-react'
+import { FileText, Sparkles, Upload, AlertTriangle, AlertCircle, ShieldCheck } from 'lucide-react'
 
 interface AddExpenseChoiceDialogProps {
   grantId: string
@@ -43,11 +43,14 @@ export function AddExpenseChoiceDialog({ grantId, onExpenseAdded }: AddExpenseCh
   })
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [saving, setSaving] = useState(false)
+  const [checking, setChecking] = useState(false)
+  const [eligibilityIssues, setEligibilityIssues] = useState<any[] | null>(null)
 
   const handleReset = () => {
     setMode('choice')
     setUploadedFile(null)
     setExtractedData(null)
+    setEligibilityIssues(null)
     setFormData({
       expense_date: new Date().toISOString().split('T')[0],
       vendor: '',
@@ -56,6 +59,49 @@ export function AddExpenseChoiceDialog({ grantId, onExpenseAdded }: AddExpenseCh
       category: ''
     })
     setSelectedFiles([])
+  }
+
+  const checkEligibilityThenSave = async () => {
+    setChecking(true)
+    setEligibilityIssues(null)
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { setChecking(false); return }
+
+      const res = await fetch('/api/compliance/check-expense', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          grantId,
+          vendor: formData.vendor,
+          description: formData.description,
+          amount: formData.amount,
+          category: formData.category,
+          expenseDate: formData.expense_date
+        })
+      })
+
+      const data = await res.json()
+      const issues = data.issues || []
+
+      if (issues.length > 0) {
+        // Surface warnings — let user decide
+        setEligibilityIssues(issues)
+      } else {
+        // Clean — save immediately
+        await handleSaveExpense()
+      }
+    } catch (err) {
+      console.error('Eligibility check failed:', err)
+      // Fail open — proceed with save
+      await handleSaveExpense()
+    } finally {
+      setChecking(false)
+    }
   }
 
   const handleExtractFromDocument = async (file: File) => {
@@ -285,7 +331,7 @@ export function AddExpenseChoiceDialog({ grantId, onExpenseAdded }: AddExpenseCh
               <p className="text-xs text-green-700 mt-1">Review the information below and make any necessary adjustments</p>
             </div>
 
-            <form onSubmit={(e) => { e.preventDefault(); handleSaveExpense(); }} className="space-y-4">
+            <form onSubmit={(e) => { e.preventDefault(); checkEligibilityThenSave(); }} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="expense_date">Date *</Label>
                 <Input
@@ -356,21 +402,34 @@ export function AddExpenseChoiceDialog({ grantId, onExpenseAdded }: AddExpenseCh
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-4">
-                <Button type="button" variant="outline" onClick={handleReset}>
-                  Start Over
-                </Button>
-                <Button type="submit" disabled={saving}>
-                  {saving ? 'Saving...' : 'Save Expense'}
-                </Button>
-              </div>
+              {eligibilityIssues && eligibilityIssues.length > 0 && (
+                <EligibilityWarning
+                  issues={eligibilityIssues}
+                  onSaveAnyway={handleSaveExpense}
+                  onGoBack={() => setEligibilityIssues(null)}
+                  saving={saving}
+                />
+              )}
+
+              {!eligibilityIssues && (
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button type="button" variant="outline" onClick={handleReset}>
+                    Start Over
+                  </Button>
+                  <Button type="submit" disabled={saving || checking}>
+                    {checking ? (
+                      <><Sparkles className="h-4 w-4 mr-2 animate-pulse" />Checking eligibility...</>
+                    ) : saving ? 'Saving...' : 'Save Expense'}
+                  </Button>
+                </div>
+              )}
             </form>
           </div>
         )}
 
         {mode === 'manual' && (
           <div className="py-6">
-            <form onSubmit={(e) => { e.preventDefault(); handleSaveExpense(); }} className="space-y-4">
+            <form onSubmit={(e) => { e.preventDefault(); checkEligibilityThenSave(); }} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="expense_date_manual">Date *</Label>
                 <Input
@@ -462,18 +521,104 @@ export function AddExpenseChoiceDialog({ grantId, onExpenseAdded }: AddExpenseCh
                 )}
               </div>
 
-              <div className="flex justify-end gap-2 pt-4">
-                <Button type="button" variant="outline" onClick={handleReset}>
-                  Back
-                </Button>
-                <Button type="submit" disabled={saving}>
-                  {saving ? 'Saving...' : 'Save Expense'}
-                </Button>
-              </div>
+              {eligibilityIssues && eligibilityIssues.length > 0 && (
+                <EligibilityWarning
+                  issues={eligibilityIssues}
+                  onSaveAnyway={handleSaveExpense}
+                  onGoBack={() => setEligibilityIssues(null)}
+                  saving={saving}
+                />
+              )}
+
+              {!eligibilityIssues && (
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button type="button" variant="outline" onClick={handleReset}>
+                    Back
+                  </Button>
+                  <Button type="submit" disabled={saving || checking}>
+                    {checking ? (
+                      <><Sparkles className="h-4 w-4 mr-2 animate-pulse" />Checking eligibility...</>
+                    ) : saving ? 'Saving...' : 'Save Expense'}
+                  </Button>
+                </div>
+              )}
             </form>
           </div>
         )}
       </DialogContent>
     </Dialog>
+  )
+}
+
+// ── Eligibility Warning Panel ──────────────────────────────────────────────
+
+interface EligibilityWarningProps {
+  issues: { title: string; description: string; severity: string }[]
+  onSaveAnyway: () => void
+  onGoBack: () => void
+  saving: boolean
+}
+
+function EligibilityWarning({ issues, onSaveAnyway, onGoBack, saving }: EligibilityWarningProps) {
+  const hasCritical = issues.some(i => i.severity === 'critical')
+  const hasHigh = issues.some(i => i.severity === 'high')
+
+  const severityStyle = (severity: string) => {
+    if (severity === 'critical') return 'bg-red-50 border-red-200 text-red-800'
+    if (severity === 'high') return 'bg-orange-50 border-orange-200 text-orange-800'
+    if (severity === 'medium') return 'bg-amber-50 border-amber-200 text-amber-800'
+    return 'bg-slate-50 border-slate-200 text-slate-700'
+  }
+
+  const severityIcon = (severity: string) => {
+    if (severity === 'critical' || severity === 'high') return <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+    return <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+  }
+
+  return (
+    <div className="mt-4 space-y-3">
+      <div className={`p-4 rounded-lg border ${hasCritical ? 'bg-red-50 border-red-300' : hasHigh ? 'bg-orange-50 border-orange-300' : 'bg-amber-50 border-amber-300'}`}>
+        <div className="flex items-center gap-2 mb-1">
+          <AlertTriangle className={`h-5 w-5 ${hasCritical ? 'text-red-600' : hasHigh ? 'text-orange-600' : 'text-amber-600'}`} />
+          <p className={`font-semibold text-sm ${hasCritical ? 'text-red-900' : hasHigh ? 'text-orange-900' : 'text-amber-900'}`}>
+            Potential compliance {issues.length === 1 ? 'issue' : 'issues'} detected
+          </p>
+        </div>
+        <p className={`text-xs ${hasCritical ? 'text-red-700' : hasHigh ? 'text-orange-700' : 'text-amber-700'}`}>
+          This expense may conflict with one or more of the grant's special conditions. Please review before saving.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        {issues.map((issue, idx) => (
+          <div key={idx} className={`flex items-start gap-2 p-3 rounded-lg border text-sm ${severityStyle(issue.severity)}`}>
+            {severityIcon(issue.severity)}
+            <div>
+              <p className="font-medium">{issue.title}</p>
+              <p className="text-xs mt-0.5 opacity-80">{issue.description}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <p className="text-xs text-slate-500 flex items-center gap-1">
+        <Sparkles className="h-3 w-3" />
+        AI-generated analysis — review with your grants manager before proceeding.
+      </p>
+
+      <div className="flex justify-end gap-2 pt-1">
+        <Button type="button" variant="outline" onClick={onGoBack} disabled={saving}>
+          Go Back & Edit
+        </Button>
+        <Button
+          type="button"
+          onClick={onSaveAnyway}
+          disabled={saving}
+          className={hasCritical ? 'bg-red-600 hover:bg-red-700 text-white' : hasHigh ? 'bg-orange-600 hover:bg-orange-700 text-white' : ''}
+        >
+          {saving ? 'Saving...' : 'Save Anyway'}
+        </Button>
+      </div>
+    </div>
   )
 }
