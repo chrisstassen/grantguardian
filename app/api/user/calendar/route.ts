@@ -29,17 +29,20 @@ export async function GET(request: NextRequest) {
 
   const grantIds = grants.map(g => g.id)
 
-  // Fetch all incomplete compliance requirements with due dates
-  const { data: requirements, error: reqError } = await supabaseAdmin
+  // Fetch all compliance requirements with due dates for these grants, then filter in JS
+  const { data: allRequirements, error: reqError } = await supabaseAdmin
     .from('compliance_requirements')
     .select('id, grant_id, title, due_date, priority, status, category')
     .in('grant_id', grantIds)
-    .or('status.neq.completed,status.is.null')
     .not('due_date', 'is', null)
     .order('due_date', { ascending: true })
 
-  console.log('[Calendar] requirements found:', requirements?.length, 'error:', reqError)
-  console.log('[Calendar] requirements:', requirements?.map(r => `${r.title}: status=${r.status}, due=${r.due_date}`))
+  // Filter out completed ones in JS (avoids PostgREST NULL-exclusion quirks with .neq)
+  const requirements = (allRequirements || []).filter(r => r.status !== 'completed')
+
+  console.log('[Calendar] all requirements fetched:', allRequirements?.length, 'error:', reqError)
+  console.log('[Calendar] non-completed requirements:', requirements.length)
+  console.log('[Calendar] requirements:', requirements.map(r => `${r.title}: status=${r.status}, due=${r.due_date}`))
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
