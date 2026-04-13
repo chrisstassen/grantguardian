@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     .from('grants')
     .select('id, grant_name, funding_agency, period_end, status')
     .eq('organization_id', orgId)
-    .in('status', ['active', 'pending'])
+    .neq('status', 'closed')
 
   if (!grants || grants.length === 0) {
     return NextResponse.json({ events: [] })
