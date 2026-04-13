@@ -52,7 +52,13 @@ export default function CalendarPage() {
 
     if (res.ok) {
       const data = await res.json()
+      console.log('[Calendar page] API response:', data)
+      console.log('[Calendar page] events count:', data.events?.length)
+      console.log('[Calendar page] first few events:', data.events?.slice(0, 5))
       setEvents(data.events || [])
+    } else {
+      const err = await res.text()
+      console.error('[Calendar page] API error:', res.status, err)
     }
 
     setLoading(false)

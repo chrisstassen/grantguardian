@@ -13,26 +13,33 @@ export async function GET(request: NextRequest) {
   if (!orgId) return NextResponse.json({ error: 'orgId required' }, { status: 400 })
 
   // Fetch active/pending grants for the org
-  const { data: grants } = await supabaseAdmin
+  const { data: grants, error: grantsError } = await supabaseAdmin
     .from('grants')
     .select('id, grant_name, funding_agency, period_end, status')
     .eq('organization_id', orgId)
     .neq('status', 'closed')
 
+  console.log('[Calendar] orgId:', orgId)
+  console.log('[Calendar] grants found:', grants?.length, 'error:', grantsError)
+  console.log('[Calendar] grant statuses:', grants?.map(g => `${g.grant_name}: ${g.status}`))
+
   if (!grants || grants.length === 0) {
-    return NextResponse.json({ events: [] })
+    return NextResponse.json({ events: [], debug: { grantsFound: 0, grantsError } })
   }
 
   const grantIds = grants.map(g => g.id)
 
   // Fetch all incomplete compliance requirements with due dates
-  const { data: requirements } = await supabaseAdmin
+  const { data: requirements, error: reqError } = await supabaseAdmin
     .from('compliance_requirements')
     .select('id, grant_id, title, due_date, priority, status, category')
     .in('grant_id', grantIds)
-    .neq('status', 'completed')
+    .or('status.neq.completed,status.is.null')
     .not('due_date', 'is', null)
     .order('due_date', { ascending: true })
+
+  console.log('[Calendar] requirements found:', requirements?.length, 'error:', reqError)
+  console.log('[Calendar] requirements:', requirements?.map(r => `${r.title}: status=${r.status}, due=${r.due_date}`))
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -98,5 +105,6 @@ export async function GET(request: NextRequest) {
   // Sort all events by date
   events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
-  return NextResponse.json({ events })
+  console.log('[Calendar] total events built:', events.length)
+  return NextResponse.json({ events, debug: { grantsFound: grants.length, requirementsFound: requirements?.length ?? 0 } })
 }
