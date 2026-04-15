@@ -1,6 +1,60 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+
+export async function POST(request: NextRequest) {
+  const authHeader = request.headers.get('authorization')
+  const token = authHeader?.replace('Bearer ', '')
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
+  if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const body = await request.json()
+  const { organization_id } = body
+
+  if (!organization_id) {
+    return NextResponse.json({ error: 'organization_id required' }, { status: 400 })
+  }
+
+  // Confirm caller is a non-viewer member of the org
+  const { data: membership } = await supabaseAdmin
+    .from('user_organization_memberships')
+    .select('role')
+    .eq('user_id', user.id)
+    .eq('organization_id', organization_id)
+    .single()
+
+  if (!membership || membership.role === 'viewer') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  const { data: grant, error: insertError } = await supabaseAdmin
+    .from('grants')
+    .insert([{
+      organization_id,
+      grant_name: body.grant_name,
+      funding_agency: body.funding_agency,
+      program_type: body.program_type ?? null,
+      award_number: body.award_number ?? null,
+      award_amount: body.award_amount != null ? parseFloat(body.award_amount) : null,
+      period_start: body.period_start ?? null,
+      period_end: body.period_end ?? null,
+      status: body.status || 'active',
+      award_letter_url: body.award_letter_url ?? null,
+      award_letter_name: body.award_letter_name ?? null,
+      special_conditions: body.special_conditions ?? null,
+    }])
+    .select()
+    .single()
+
+  if (insertError) {
+    console.error('Grant insert error:', insertError)
+    return NextResponse.json({ error: insertError.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ grant })
+}
 
 export async function GET(request: Request) {
   // Verify the caller's identity
