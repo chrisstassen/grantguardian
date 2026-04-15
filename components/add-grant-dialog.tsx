@@ -192,7 +192,6 @@ export function AddGrantDialog({ onGrantAdded }: AddGrantDialogProps) {
         status: formData.status,
         award_letter_url: awardLetterUrl,
         award_letter_name: awardLetterName,
-        special_conditions: formData.special_conditions || null
       })
     })
 
@@ -215,6 +214,19 @@ export function AddGrantDialog({ onGrantAdded }: AddGrantDialogProps) {
         status: 'open'
       }))
       await supabase.from('compliance_requirements').insert(reqs)
+    }
+
+    // Save extracted special conditions note if any
+    if (formData.special_conditions && grantData.grant?.id) {
+      await supabase.from('special_conditions').insert([{
+        grant_id: grantData.grant.id,
+        title: 'AI Extracted Conditions',
+        description: formData.special_conditions,
+        risk_level: 'medium',
+        applies_to: 'all',
+        restriction_type: 'requirement',
+        ai_generated: true
+      }])
     }
 
     setLoading(false)

@@ -43,7 +43,6 @@ export async function POST(request: NextRequest) {
       status: body.status || 'active',
       award_letter_url: body.award_letter_url ?? null,
       award_letter_name: body.award_letter_name ?? null,
-      special_conditions: body.special_conditions ?? null,
     }])
     .select()
     .single()
