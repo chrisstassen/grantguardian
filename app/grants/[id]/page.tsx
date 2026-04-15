@@ -540,18 +540,18 @@ export default function GrantDetailsPage() {
                   <Badge variant="destructive" className="ml-1 xl:ml-2 text-xs">{overdueRequirements.length}</Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger 
-                value="expenses" 
-                className="flex-1 whitespace-nowrap border border-slate-300 border-r-0 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
-              >
-                Expenses
-                <Badge variant="secondary" className="ml-1 xl:ml-2 text-xs">{expenses.length}</Badge>
-              </TabsTrigger>
               <TabsTrigger
                 value="budget"
                 className="flex-1 whitespace-nowrap border border-slate-300 border-r-0 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
               >
                 Budget
+              </TabsTrigger>
+              <TabsTrigger
+                value="expenses"
+                className="flex-1 whitespace-nowrap border border-slate-300 border-r-0 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
+              >
+                Expenses
+                <Badge variant="secondary" className="ml-1 xl:ml-2 text-xs">{expenses.length}</Badge>
               </TabsTrigger>
               <TabsTrigger
                 value="payments"
@@ -922,6 +922,20 @@ export default function GrantDetailsPage() {
             </Card>
           </TabsContent>
 
+          {/* Budget Tab */}
+          <TabsContent value="budget">
+            <Card>
+              <CardContent className="pt-6">
+                <BudgetTab
+                  grantId={params.id as string}
+                  expenses={expenses}
+                  awardAmount={grant?.award_amount ?? null}
+                  canEdit={userRole !== 'viewer'}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           {/* Expenses Tab */}
           <TabsContent value="expenses">
             <Card>
@@ -1010,20 +1024,6 @@ export default function GrantDetailsPage() {
                     ))}
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Budget Tab */}
-          <TabsContent value="budget">
-            <Card>
-              <CardContent className="pt-6">
-                <BudgetTab
-                  grantId={params.id as string}
-                  expenses={expenses}
-                  awardAmount={grant?.award_amount ?? null}
-                  canEdit={userRole !== 'viewer'}
-                />
               </CardContent>
             </Card>
           </TabsContent>
