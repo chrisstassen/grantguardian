@@ -27,10 +27,10 @@ export async function POST(request: NextRequest) {
               text: `Extract expense information from this invoice/receipt. Return ONLY a JSON object with these fields:
 {
   "vendor": "vendor or payee name",
-  "amount": numeric amount (just the number, no currency symbol),
+  "invoice_number": "invoice number, bill number, receipt number, or reference number (or null if not found)",
+  "amount": numeric amount as a number (just the number, no currency symbol or commas),
   "date": "YYYY-MM-DD format",
-  "description": "brief description of items/services",
-  "category": "one of: Personnel, Travel, Equipment, Supplies, Contractual, Other (or null if unclear)"
+  "description": "brief description of items/services"
 }
 
 If any field is unclear, use null. Return only the JSON object, no other text.`

@@ -33,7 +33,7 @@ interface BudgetLineItem {
 
 interface BudgetTabProps {
   grantId: string
-  expenses: any[]          // passed from parent — already loaded
+  expenses: any[]          // passed from parent — already loaded (used for total spend only)
   awardAmount: number | null
   canEdit: boolean
 }
@@ -42,6 +42,7 @@ const emptyForm = { category: '', description: '', budgeted_amount: '', notes: '
 
 export function BudgetTab({ grantId, expenses, awardAmount, canEdit }: BudgetTabProps) {
   const [items, setItems] = useState<BudgetLineItem[]>([])
+  const [allocations, setAllocations] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<BudgetLineItem | null>(null)
@@ -56,30 +57,40 @@ export function BudgetTab({ grantId, expenses, awardAmount, canEdit }: BudgetTab
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { setLoading(false); return }
 
-    const res = await fetch(`/api/user/budget-items?grantId=${grantId}`, {
-      headers: { Authorization: `Bearer ${session.access_token}` }
-    })
-    if (res.ok) {
-      const data = await res.json()
+    const [itemsRes, allocRes] = await Promise.all([
+      fetch(`/api/user/budget-items?grantId=${grantId}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      }),
+      fetch(`/api/user/expense-allocations?grantId=${grantId}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      })
+    ])
+
+    if (itemsRes.ok) {
+      const data = await itemsRes.json()
       setItems(data.items || [])
+    }
+    if (allocRes.ok) {
+      const data = await allocRes.json()
+      setAllocations(data.allocations || [])
     }
     setLoading(false)
   }
 
   useEffect(() => { load() }, [grantId])
 
-  // ── Spending per category (from parent expenses) ────────────────────────
+  // ── Spending per budget line item (from allocations) ───────────────────
 
-  const spentByCategory: Record<string, number> = {}
-  for (const exp of expenses) {
-    const cat = exp.category || 'Other'
-    spentByCategory[cat] = (spentByCategory[cat] || 0) + (parseFloat(exp.amount) || 0)
+  const spentByLineItem: Record<string, number> = {}
+  for (const alloc of allocations) {
+    const id = alloc.budget_line_item_id
+    spentByLineItem[id] = (spentByLineItem[id] || 0) + (parseFloat(alloc.allocated_amount) || 0)
   }
 
   // ── Totals ──────────────────────────────────────────────────────────────
 
   const totalBudgeted = items.reduce((s, i) => s + i.budgeted_amount, 0)
-  const totalSpent = items.reduce((s, i) => s + (spentByCategory[i.category] || 0), 0)
+  const totalSpent = items.reduce((s, i) => s + (spentByLineItem[i.id] || 0), 0)
   const totalRemaining = totalBudgeted - totalSpent
   const unallocated = (awardAmount || 0) - totalBudgeted
 
@@ -161,7 +172,7 @@ export function BudgetTab({ grantId, expenses, awardAmount, canEdit }: BudgetTab
     return 'bg-emerald-500'
   }
 
-  const overBudgetItems = items.filter(i => (spentByCategory[i.category] || 0) > i.budgeted_amount)
+  const overBudgetItems = items.filter(i => (spentByLineItem[i.id] || 0) > i.budgeted_amount)
 
   // ── Render ──────────────────────────────────────────────────────────────
 
@@ -227,7 +238,7 @@ export function BudgetTab({ grantId, expenses, awardAmount, canEdit }: BudgetTab
       ) : (
         <div className="space-y-3">
           {items.map(item => {
-            const spent = spentByCategory[item.category] || 0
+            const spent = spentByLineItem[item.id] || 0
             const remaining = item.budgeted_amount - spent
             const percentage = pct(spent, item.budgeted_amount)
             const isOver = spent > item.budgeted_amount
