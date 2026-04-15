@@ -52,6 +52,40 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: insertError.message }, { status: 500 })
   }
 
+  const grantId = grant.id
+
+  // Insert extracted compliance requirements if provided
+  if (Array.isArray(body.requirements) && body.requirements.length > 0) {
+    const reqs = body.requirements.map((r: any) => ({
+      grant_id: grantId,
+      title: r.title,
+      description: r.description || null,
+      due_date: r.due_date || null,
+      priority: r.priority || 'medium',
+      status: 'open'
+    }))
+    const { error: reqError } = await supabaseAdmin
+      .from('compliance_requirements')
+      .insert(reqs)
+    if (reqError) console.error('Requirements insert error:', reqError)
+  }
+
+  // Insert extracted special conditions if provided
+  if (body.special_conditions_text) {
+    const { error: condError } = await supabaseAdmin
+      .from('special_conditions')
+      .insert([{
+        grant_id: grantId,
+        title: 'AI Extracted Conditions',
+        description: body.special_conditions_text,
+        risk_level: 'medium',
+        applies_to: 'all',
+        restriction_type: 'requirement',
+        ai_generated: true
+      }])
+    if (condError) console.error('Special conditions insert error:', condError)
+  }
+
   return NextResponse.json({ grant })
 }
 
