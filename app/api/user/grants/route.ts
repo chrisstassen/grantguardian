@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
     console.log('[grants POST] inserting', body.requirements.length, 'requirements for grant', grantId)
     const reqs = body.requirements.map((r: any) => ({
       grant_id: grantId,
+      created_by_user_id: user.id,
       title: r.title,
       description: r.description || null,
       due_date: r.due_date || null,
