@@ -54,8 +54,12 @@ export async function POST(request: NextRequest) {
 
   const grantId = grant.id
 
+  let requirementsInserted = 0
+  let reqInsertError = null
+
   // Insert extracted compliance requirements if provided
   if (Array.isArray(body.requirements) && body.requirements.length > 0) {
+    console.log('[grants POST] inserting', body.requirements.length, 'requirements for grant', grantId)
     const reqs = body.requirements.map((r: any) => ({
       grant_id: grantId,
       title: r.title,
@@ -64,10 +68,19 @@ export async function POST(request: NextRequest) {
       priority: r.priority || 'medium',
       status: 'open'
     }))
-    const { error: reqError } = await supabaseAdmin
+    const { data: insertedReqs, error: reqError } = await supabaseAdmin
       .from('compliance_requirements')
       .insert(reqs)
-    if (reqError) console.error('Requirements insert error:', reqError)
+      .select()
+    if (reqError) {
+      console.error('[grants POST] Requirements insert error:', reqError)
+      reqInsertError = reqError.message
+    } else {
+      requirementsInserted = insertedReqs?.length ?? 0
+      console.log('[grants POST] requirements inserted:', requirementsInserted)
+    }
+  } else {
+    console.log('[grants POST] no requirements in body, body.requirements:', body.requirements)
   }
 
   // Insert extracted special conditions if provided
@@ -83,10 +96,10 @@ export async function POST(request: NextRequest) {
         restriction_type: 'requirement',
         ai_generated: true
       }])
-    if (condError) console.error('Special conditions insert error:', condError)
+    if (condError) console.error('[grants POST] Special conditions insert error:', condError)
   }
 
-  return NextResponse.json({ grant })
+  return NextResponse.json({ grant, requirementsInserted, reqInsertError })
 }
 
 export async function GET(request: Request) {

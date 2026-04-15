@@ -198,6 +198,8 @@ export function AddGrantDialog({ onGrantAdded }: AddGrantDialogProps) {
     })
 
     const grantData = await res.json()
+    console.log('[AddGrant] API response:', grantData)
+    console.log('[AddGrant] extractedRequirements count:', extractedRequirements.length)
 
     if (!res.ok) {
       alert('Error adding grant: ' + (grantData.error || 'Unknown error'))
