@@ -30,6 +30,7 @@ import { AddReplyDialog } from '@/components/add-reply-dialog'
 import { PaymentDetailDialog } from '@/components/payment-detail-dialog'
 import { Pencil, Trash2, CheckCircle2, Clock, AlertCircle, Sparkles } from 'lucide-react'
 import { useOrganization } from '@/contexts/organization-context'
+import { BudgetTab } from '@/components/budget-tab'
 
 interface Grant {
   id: string
@@ -512,7 +513,7 @@ export default function GrantDetailsPage() {
     >
       <Tabs defaultValue={defaultTab} className="w-full">
         <div className="mb-6 overflow-x-auto overflow-y-hidden border-b border-slate-300 pb-3">
-            <TabsList className="inline-flex w-full min-w-max lg:grid lg:grid-cols-6 lg:w-full h-auto p-0 bg-transparent gap-0">
+            <TabsList className="inline-flex w-full min-w-max lg:grid lg:grid-cols-7 lg:w-full h-auto p-0 bg-transparent gap-0">
               <TabsTrigger 
                 value="summary" 
                 className="flex-1 whitespace-nowrap border border-slate-300 border-r-0 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
@@ -546,8 +547,14 @@ export default function GrantDetailsPage() {
                 Expenses
                 <Badge variant="secondary" className="ml-1 xl:ml-2 text-xs">{expenses.length}</Badge>
               </TabsTrigger>
-              <TabsTrigger 
-                value="payments" 
+              <TabsTrigger
+                value="budget"
+                className="flex-1 whitespace-nowrap border border-slate-300 border-r-0 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
+              >
+                Budget
+              </TabsTrigger>
+              <TabsTrigger
+                value="payments"
                 className="flex-1 whitespace-nowrap border border-slate-300 border-r-0 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
               >
                 Payments
@@ -1003,6 +1010,20 @@ export default function GrantDetailsPage() {
                     ))}
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Budget Tab */}
+          <TabsContent value="budget">
+            <Card>
+              <CardContent className="pt-6">
+                <BudgetTab
+                  grantId={params.id as string}
+                  expenses={expenses}
+                  awardAmount={grant?.award_amount ?? null}
+                  canEdit={userRole !== 'viewer'}
+                />
               </CardContent>
             </Card>
           </TabsContent>
