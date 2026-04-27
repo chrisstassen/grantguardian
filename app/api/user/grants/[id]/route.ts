@@ -53,6 +53,8 @@ export async function PATCH(
       status: body.status,
       award_letter_url: body.award_letter_url ?? null,
       award_letter_name: body.award_letter_name ?? null,
+      percent_complete: body.percent_complete != null ? Math.min(100, Math.max(0, parseInt(body.percent_complete))) : 0,
+      scope_of_work: body.scope_of_work ?? null,
       updated_at: new Date().toISOString()
     })
     .eq('id', grantId)

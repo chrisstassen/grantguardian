@@ -32,6 +32,7 @@ interface Grant {
   status: string
   award_letter_url: string | null
   award_letter_name: string | null
+  percent_complete: number
 }
 
 interface EditGrantDialogProps {
@@ -51,7 +52,8 @@ export function EditGrantDialog({ grant, open, onOpenChange, onGrantUpdated }: E
     award_amount: grant.award_amount?.toString() || '',
     period_start: grant.period_start || '',
     period_end: grant.period_end || '',
-    status: grant.status
+    status: grant.status,
+    percent_complete: (grant.percent_complete ?? 0).toString()
   })
   const [newAwardLetterFile, setNewAwardLetterFile] = useState<File | null>(null)
   const [deleteAwardLetter, setDeleteAwardLetter] = useState(false)
@@ -67,7 +69,8 @@ export function EditGrantDialog({ grant, open, onOpenChange, onGrantUpdated }: E
       award_amount: grant.award_amount?.toString() || '',
       period_start: grant.period_start || '',
       period_end: grant.period_end || '',
-      status: grant.status
+      status: grant.status,
+      percent_complete: (grant.percent_complete ?? 0).toString()
     })
   }, [grant])
 
@@ -138,7 +141,8 @@ export function EditGrantDialog({ grant, open, onOpenChange, onGrantUpdated }: E
         period_end: formData.period_end || null,
         status: formData.status,
         award_letter_url: awardLetterUrl,
-        award_letter_name: awardLetterName
+        award_letter_name: awardLetterName,
+        percent_complete: parseInt(formData.percent_complete) || 0
       })
     })
 
@@ -245,6 +249,20 @@ export function EditGrantDialog({ grant, open, onOpenChange, onGrantUpdated }: E
                 onChange={(e) => setFormData({ ...formData, period_end: e.target.value })}
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="percent_complete">% Complete (0–100)</Label>
+            <Input
+              id="percent_complete"
+              type="number"
+              min="0"
+              max="100"
+              value={formData.percent_complete}
+              onChange={(e) => setFormData({ ...formData, percent_complete: e.target.value })}
+              placeholder="0"
+            />
+            <p className="text-xs text-slate-500">Manually track overall grant completion percentage</p>
           </div>
 
           <div className="space-y-2">

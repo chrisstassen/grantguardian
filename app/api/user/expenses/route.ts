@@ -35,22 +35,27 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Duplicate check ─────────────────────────────────────────────────────
-  // Check by vendor + invoice_number (only if invoice_number is provided)
-  if (!force_save && body.invoice_number) {
-    const { data: existing } = await supabaseAdmin
+  // Match on invoice_number (case-insensitive, trimmed) within the grant.
+  // We skip vendor matching intentionally — invoice numbers should be unique
+  // per grant regardless of minor name differences.
+  const invoiceNumber = (body.invoice_number || '').trim()
+  if (!force_save && invoiceNumber) {
+    const { data: existing, error: dupCheckError } = await supabaseAdmin
       .from('expenses')
       .select('id, expense_date, amount, vendor, invoice_number')
       .eq('grant_id', grant_id)
-      .eq('vendor', body.vendor)
-      .eq('invoice_number', body.invoice_number)
+      .ilike('invoice_number', invoiceNumber)
       .limit(1)
+      .maybeSingle()
 
-    if (existing && existing.length > 0) {
-      const dup = existing[0]
+    if (dupCheckError) {
+      console.error('Duplicate check query error:', dupCheckError)
+      // Fail open — don't block the save if the check itself errors
+    } else if (existing) {
       return NextResponse.json({
         duplicate: true,
-        message: `An expense from "${dup.vendor}" with invoice #${dup.invoice_number} for $${parseFloat(dup.amount).toFixed(2)} already exists on this grant (${dup.expense_date}).`,
-        existing: dup,
+        message: `An expense with invoice #${existing.invoice_number} for $${parseFloat(existing.amount).toFixed(2)} from "${existing.vendor}" already exists on this grant (${existing.expense_date}).`,
+        existing,
       }, { status: 409 })
     }
   }
@@ -66,6 +71,7 @@ export async function POST(request: NextRequest) {
       description: body.description || null,
       amount: parseFloat(body.amount),
       invoice_number: body.invoice_number || null,
+      category: body.category || null,
     }])
     .select()
     .single()

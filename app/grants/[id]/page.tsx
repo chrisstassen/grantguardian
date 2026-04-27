@@ -31,6 +31,7 @@ import { PaymentDetailDialog } from '@/components/payment-detail-dialog'
 import { Pencil, Trash2, CheckCircle2, Clock, AlertCircle, Sparkles } from 'lucide-react'
 import { useOrganization } from '@/contexts/organization-context'
 import { BudgetTab } from '@/components/budget-tab'
+import { GenerateReportDialog } from '@/components/generate-report-dialog'
 
 interface Grant {
   id: string
@@ -46,6 +47,8 @@ interface Grant {
   updated_at: string
   award_letter_url: string | null
   award_letter_name: string | null
+  percent_complete: number
+  scope_of_work: string | null
 }
 
 export default function GrantDetailsPage() {
@@ -72,7 +75,10 @@ export default function GrantDetailsPage() {
   const [requirementDialogOpen, setRequirementDialogOpen] = useState(false)
   const [notes, setNotes] = useState<any[]>([])
   const [teamMembers, setTeamMembers] = useState<any[]>([])
-  
+  const [editingScopeOfWork, setEditingScopeOfWork] = useState(false)
+  const [scopeOfWorkDraft, setScopeOfWorkDraft] = useState('')
+  const [savingScopeOfWork, setSavingScopeOfWork] = useState(false)
+
   const defaultTab = searchParams?.get('tab') || 'summary'
 
   const totalExpenses = expenses.reduce((sum, exp) => sum + (parseFloat(exp.amount) || 0), 0)
@@ -578,17 +584,20 @@ export default function GrantDetailsPage() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Grant Overview</CardTitle>
-                  {userRole !== 'viewer' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setEditOpen(true)}
-                      className="flex items-center gap-1.5"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                      Edit Grant
-                    </Button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <GenerateReportDialog grantId={params.id as string} grantName={grant.grant_name} />
+                    {userRole !== 'viewer' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditOpen(true)}
+                        className="flex items-center gap-1.5"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        Edit Grant
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-6">
@@ -615,6 +624,43 @@ export default function GrantDetailsPage() {
                 <div>
                   <p className="text-sm font-medium text-slate-600">Award Number</p>
                   <p className="text-lg text-slate-900 mt-1">{grant.award_number || 'Not specified'}</p>
+                </div>
+                {/* Progress Metrics Row */}
+                <div className="col-span-2 grid grid-cols-3 gap-4 pt-4 border-t">
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-slate-600">% Complete</p>
+                    <p className="text-3xl font-bold text-slate-900 mt-1">{grant.percent_complete ?? 0}%</p>
+                    <div className="w-full bg-slate-200 rounded-full h-2 mt-2">
+                      <div
+                        className="bg-slate-700 h-2 rounded-full transition-all"
+                        style={{ width: `${Math.min(100, grant.percent_complete ?? 0)}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-slate-600">% Expended</p>
+                    <p className="text-3xl font-bold text-blue-600 mt-1">
+                      {grant.award_amount ? ((totalExpenses / grant.award_amount) * 100).toFixed(1) : '0.0'}%
+                    </p>
+                    <div className="w-full bg-slate-200 rounded-full h-2 mt-2">
+                      <div
+                        className={`h-2 rounded-full transition-all ${totalExpenses > (grant.award_amount || 0) ? 'bg-red-500' : 'bg-blue-500'}`}
+                        style={{ width: `${Math.min(100, grant.award_amount ? (totalExpenses / grant.award_amount) * 100 : 0)}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-slate-600">% Payments Received</p>
+                    <p className="text-3xl font-bold text-green-600 mt-1">
+                      {grant.award_amount ? ((totalPayments / grant.award_amount) * 100).toFixed(1) : '0.0'}%
+                    </p>
+                    <div className="w-full bg-slate-200 rounded-full h-2 mt-2">
+                      <div
+                        className="bg-green-500 h-2 rounded-full transition-all"
+                        style={{ width: `${Math.min(100, grant.award_amount ? (totalPayments / grant.award_amount) * 100 : 0)}%` }}
+                      />
+                    </div>
+                  </div>
                 </div>
                 {grant.award_letter_url && (
                   <div className="col-span-2">
@@ -769,6 +815,97 @@ export default function GrantDetailsPage() {
                     </div>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Scope of Work Card */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Scope of Work</CardTitle>
+                  {userRole !== 'viewer' && !editingScopeOfWork && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setScopeOfWorkDraft(grant.scope_of_work || '')
+                        setEditingScopeOfWork(true)
+                      }}
+                      className="flex items-center gap-1.5"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      {grant.scope_of_work ? 'Edit' : 'Add Scope of Work'}
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {editingScopeOfWork ? (
+                  <div className="space-y-3">
+                    <textarea
+                      className="w-full min-h-[200px] rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent resize-y"
+                      value={scopeOfWorkDraft}
+                      onChange={(e) => setScopeOfWorkDraft(e.target.value)}
+                      placeholder="Describe the scope of work for this grant project..."
+                      autoFocus
+                    />
+                    <div className="flex items-center gap-2 justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditingScopeOfWork(false)}
+                        disabled={savingScopeOfWork}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={savingScopeOfWork}
+                        onClick={async () => {
+                          setSavingScopeOfWork(true)
+                          const { data: { session } } = await supabase.auth.getSession()
+                          if (!session) { setSavingScopeOfWork(false); return }
+                          const res = await fetch(`/api/user/grants/${params.id}`, {
+                            method: 'PATCH',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              Authorization: `Bearer ${session.access_token}`
+                            },
+                            body: JSON.stringify({
+                              grant_name: grant.grant_name,
+                              funding_agency: grant.funding_agency,
+                              program_type: grant.program_type,
+                              award_number: grant.award_number,
+                              award_amount: grant.award_amount,
+                              period_start: grant.period_start,
+                              period_end: grant.period_end,
+                              status: grant.status,
+                              award_letter_url: grant.award_letter_url,
+                              award_letter_name: grant.award_letter_name,
+                              percent_complete: grant.percent_complete,
+                              scope_of_work: scopeOfWorkDraft.trim() || null,
+                            })
+                          })
+                          setSavingScopeOfWork(false)
+                          if (res.ok) {
+                            setEditingScopeOfWork(false)
+                            loadGrant()
+                          } else {
+                            alert('Failed to save scope of work. Please try again.')
+                          }
+                        }}
+                      >
+                        {savingScopeOfWork ? 'Saving…' : 'Save'}
+                      </Button>
+                    </div>
+                  </div>
+                ) : grant.scope_of_work ? (
+                  <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">{grant.scope_of_work}</p>
+                ) : (
+                  <p className="text-slate-400 italic text-sm">
+                    No scope of work defined yet.{userRole !== 'viewer' ? ' Click "Add Scope of Work" to get started.' : ''}
+                  </p>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -1240,6 +1377,7 @@ export default function GrantDetailsPage() {
             loadGrant()
           }}
           userRole={userRole}
+          grantId={params.id as string}
         />
       )}
 
