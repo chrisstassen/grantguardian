@@ -34,6 +34,7 @@ import { BudgetTab } from '@/components/budget-tab'
 import { GenerateReportDialog } from '@/components/generate-report-dialog'
 import { DeliverablesSection } from '@/components/deliverables-section'
 import { FundingSourcesSection } from '@/components/funding-sources-section'
+import { ReimbursementTab } from '@/components/reimbursement-tab'
 
 interface Grant {
   id: string
@@ -522,7 +523,7 @@ export default function GrantDetailsPage() {
     >
       <Tabs defaultValue={defaultTab} className="w-full">
         <div className="mb-6 overflow-x-auto overflow-y-hidden border-b border-slate-300 pb-3">
-            <TabsList className="inline-flex w-full min-w-max lg:grid lg:grid-cols-7 lg:w-full h-auto p-0 bg-transparent gap-0">
+            <TabsList className="inline-flex w-full min-w-max lg:grid lg:grid-cols-8 lg:w-full h-auto p-0 bg-transparent gap-0">
               <TabsTrigger 
                 value="summary" 
                 className="flex-1 whitespace-nowrap border border-slate-300 border-r-0 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
@@ -569,14 +570,21 @@ export default function GrantDetailsPage() {
                 Payments
                 <Badge variant="secondary" className="ml-1 xl:ml-2 text-xs">{payments.length}</Badge>
               </TabsTrigger>
-              <TabsTrigger 
-                value="notes" 
-                className="flex-1 whitespace-nowrap border border-slate-300 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
+              <TabsTrigger
+                value="notes"
+                className="flex-1 whitespace-nowrap border border-slate-300 border-r-0 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
               >
                 Notes
                 {totalNotesCount > 0 && (
                   <Badge variant="secondary" className="ml-1 xl:ml-2 text-xs">{totalNotesCount}</Badge>
                 )}
+              </TabsTrigger>
+              <TabsTrigger
+                value="reimbursements"
+                className="flex-1 whitespace-nowrap border border-slate-300 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
+              >
+                <span className="hidden xl:inline">Reimbursements</span>
+                <span className="xl:hidden">Reimb.</span>
               </TabsTrigger>
             </TabsList>
           </div>
@@ -1372,6 +1380,16 @@ export default function GrantDetailsPage() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Reimbursements Tab */}
+          <TabsContent value="reimbursements">
+            <ReimbursementTab
+              grantId={params.id as string}
+              expenses={expenses}
+              payments={payments}
+              userRole={userRole}
+            />
           </TabsContent>
         </Tabs>
 
