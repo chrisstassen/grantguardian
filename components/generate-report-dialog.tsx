@@ -36,8 +36,18 @@ function formatDateTime(iso: string) {
   })
 }
 
+const SOURCE_TYPE_LABELS: Record<string, string> = {
+  federal: 'Federal Grant', state: 'State', local: 'Local Government',
+  insurance: 'Insurance Proceeds', organization_budget: 'Organization Budget',
+  donation: 'Donations', other: 'Other'
+}
+
+const DELIVERABLE_STATUS_LABELS: Record<string, string> = {
+  not_started: 'Not Started', in_progress: 'In Progress', completed: 'Completed'
+}
+
 function buildHtmlReport(data: any): string {
-  const { grant, organization, generatedAt, financials, expensesByCategory, payments, requirements } = data
+  const { grant, organization, generatedAt, financials, expensesByCategory, payments, requirements, deliverables, fundingSources } = data
 
   const expByCatRows = expensesByCategory.map((r: any) => `
     <tr>
@@ -67,6 +77,28 @@ function buildHtmlReport(data: any): string {
       <td>${p.reference_number || '—'}</td>
       <td style="text-align:right">${formatCurrency(parseFloat(p.amount) || 0)}</td>
     </tr>`).join('')
+
+  const totalFromSources = (fundingSources || []).reduce((s: number, r: any) => s + (parseFloat(r.amount) || 0), 0)
+  const fundingRows = (fundingSources || []).map((s: any) => `
+    <tr>
+      <td>${s.source_name}</td>
+      <td>${SOURCE_TYPE_LABELS[s.source_type] || s.source_type}</td>
+      <td style="text-align:right">${formatCurrency(parseFloat(s.amount) || 0)}</td>
+      <td style="text-align:right">${totalFromSources > 0 ? ((parseFloat(s.amount) / totalFromSources) * 100).toFixed(1) + '%' : '—'}</td>
+    </tr>`).join('')
+
+  const deliverableRows = (deliverables || []).map((d: any) => {
+    const pct = d.target_value && d.target_value > 0 ? Math.min(100, (d.actual_value / d.target_value) * 100) : null
+    return `
+    <tr>
+      <td>${d.title}${d.description ? '<br><span style="font-size:11px;color:#94a3b8">' + d.description + '</span>' : ''}</td>
+      <td style="text-align:right">${d.target_value != null ? d.target_value.toLocaleString() + (d.unit ? ' ' + d.unit : '') : '—'}</td>
+      <td style="text-align:right">${d.actual_value.toLocaleString()}${d.unit ? ' ' + d.unit : ''}</td>
+      <td style="text-align:right">${pct != null ? pct.toFixed(0) + '%' : '—'}</td>
+      <td>${DELIVERABLE_STATUS_LABELS[d.status] || d.status}</td>
+      <td>${d.due_date ? formatDate(d.due_date) : '—'}</td>
+    </tr>`
+  }).join('')
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -145,11 +177,26 @@ function buildHtmlReport(data: any): string {
 
   <h2>Financial Summary</h2>
   <div class="financials-grid">
-    <div class="fin-row"><span class="fin-label">Total Award Amount</span><span class="fin-value">${formatCurrency(financials.awardAmount)}</span></div>
+    <div class="fin-row"><span class="fin-label">Award Amount</span><span class="fin-value">${formatCurrency(financials.awardAmount)}</span></div>
+    ${financials.totalProjectCost != null ? `<div class="fin-row"><span class="fin-label">Total Project Cost</span><span class="fin-value">${formatCurrency(financials.totalProjectCost)}</span></div>` : ''}
     <div class="fin-row"><span class="fin-label">Total Expenses Logged</span><span class="fin-value">${formatCurrency(financials.totalExpenses)}</span></div>
     <div class="fin-row"><span class="fin-label">Payments Received</span><span class="fin-value" style="color:#16a34a">${formatCurrency(financials.totalPayments)}</span></div>
     <div class="fin-row"><span class="fin-label">Remaining Budget</span><span class="fin-value" style="color:${financials.remainingBudget < 0 ? '#dc2626' : '#16a34a'}">${formatCurrency(financials.remainingBudget)}</span></div>
   </div>
+
+  ${fundingSources && fundingSources.length > 0 ? `
+  <h3>Funding Sources</h3>
+  <table>
+    <thead><tr><th>Source</th><th>Type</th><th style="text-align:right">Amount</th><th style="text-align:right">% of Total</th></tr></thead>
+    <tbody>${fundingRows}</tbody>
+    <tfoot>
+      <tr style="font-weight:700;background:#f1f5f9">
+        <td colspan="2">Total</td>
+        <td style="text-align:right">${formatCurrency(totalFromSources)}</td>
+        <td style="text-align:right">100%</td>
+      </tr>
+    </tfoot>
+  </table>` : ''}
 
   <h3>Expenditures by Category</h3>
   ${expensesByCategory.length > 0 ? `
@@ -177,6 +224,13 @@ function buildHtmlReport(data: any): string {
       </tr>
     </tfoot>
   </table>` : '<p class="section-note">No payments recorded.</p>'}
+
+  <h2>Deliverables</h2>
+  ${deliverables && deliverables.length > 0 ? `
+  <table>
+    <thead><tr><th>Deliverable</th><th style="text-align:right">Target</th><th style="text-align:right">Actual</th><th style="text-align:right">Progress</th><th>Status</th><th>Due Date</th></tr></thead>
+    <tbody>${deliverableRows}</tbody>
+  </table>` : '<p class="section-note">No deliverables recorded.</p>'}
 
   <h2>Requirements</h2>
   <p class="section-note" style="margin-bottom:12px">
@@ -259,7 +313,7 @@ export function GenerateReportDialog({ grantId, grantName }: GenerateReportDialo
     URL.revokeObjectURL(url)
   }
 
-  const { financials, requirements, expensesByCategory, payments } = reportData || {}
+  const { financials, requirements, expensesByCategory, payments, deliverables, fundingSources } = reportData || {}
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -269,7 +323,7 @@ export function GenerateReportDialog({ grantId, grantName }: GenerateReportDialo
           Generate Report
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Grant Report</DialogTitle>
           <DialogDescription>
@@ -344,7 +398,8 @@ export function GenerateReportDialog({ grantId, grantName }: GenerateReportDialo
               <h3 className="font-semibold text-slate-900 mb-3">Financial Summary</h3>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 {[
-                  { label: 'Total Award', value: formatCurrency(financials.awardAmount), color: '' },
+                  { label: 'Total Project Cost', value: financials.totalProjectCost != null ? formatCurrency(financials.totalProjectCost) : '—', color: '' },
+                  { label: 'Award Amount', value: formatCurrency(financials.awardAmount), color: '' },
                   { label: 'Total Expenses', value: formatCurrency(financials.totalExpenses), color: 'text-blue-600' },
                   { label: 'Payments Received', value: formatCurrency(financials.totalPayments), color: 'text-green-600' },
                   { label: 'Remaining Budget', value: formatCurrency(financials.remainingBudget), color: financials.remainingBudget < 0 ? 'text-red-600' : 'text-green-600' },
@@ -385,6 +440,45 @@ export function GenerateReportDialog({ grantId, grantName }: GenerateReportDialo
               )}
             </div>
 
+            {/* Funding Sources */}
+            {fundingSources && fundingSources.length > 0 && (
+              <div>
+                <h3 className="font-semibold text-slate-900 mb-3">Funding Sources</h3>
+                <div className="rounded-lg border border-slate-200 overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Source</th>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Type</th>
+                        <th className="text-right px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Amount</th>
+                        <th className="text-right px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">% of Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {fundingSources.map((s: any) => {
+                        const srcTotal = fundingSources.reduce((acc: number, r: any) => acc + (parseFloat(r.amount) || 0), 0)
+                        return (
+                          <tr key={s.id} className="border-t border-slate-100">
+                            <td className="px-4 py-2 text-slate-700">{s.source_name}</td>
+                            <td className="px-4 py-2 text-slate-500">{SOURCE_TYPE_LABELS[s.source_type] || s.source_type}</td>
+                            <td className="px-4 py-2 text-right font-medium">{formatCurrency(parseFloat(s.amount) || 0)}</td>
+                            <td className="px-4 py-2 text-right text-slate-500">{srcTotal > 0 ? ((parseFloat(s.amount) / srcTotal) * 100).toFixed(1) + '%' : '—'}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                    <tfoot className="bg-slate-50 border-t border-slate-200">
+                      <tr>
+                        <td colSpan={2} className="px-4 py-2 font-semibold text-slate-700">Total</td>
+                        <td className="px-4 py-2 text-right font-bold text-slate-900">{formatCurrency(fundingSources.reduce((a: number, s: any) => a + (parseFloat(s.amount) || 0), 0))}</td>
+                        <td className="px-4 py-2 text-right font-semibold text-slate-600">100%</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            )}
+
             {/* Payments Received */}
             <div>
               <h3 className="font-semibold text-slate-900 mb-3">Payments Received</h3>
@@ -417,6 +511,57 @@ export function GenerateReportDialog({ grantId, grantName }: GenerateReportDialo
                         <td className="px-4 py-2 text-right font-bold text-green-700">{formatCurrency(financials.totalPayments)}</td>
                       </tr>
                     </tfoot>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Deliverables */}
+            <div>
+              <h3 className="font-semibold text-slate-900 mb-3">Deliverables</h3>
+              {!deliverables || deliverables.length === 0 ? (
+                <p className="text-sm text-slate-400 italic">No deliverables recorded for this grant.</p>
+              ) : (
+                <div className="rounded-lg border border-slate-200 overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Deliverable</th>
+                        <th className="text-right px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Target</th>
+                        <th className="text-right px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Actual</th>
+                        <th className="text-right px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Progress</th>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">Due</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {deliverables.map((d: any) => {
+                        const pct = d.target_value && d.target_value > 0 ? Math.min(100, (d.actual_value / d.target_value) * 100) : null
+                        const statusColors: Record<string, string> = { completed: 'text-green-700', in_progress: 'text-blue-700', not_started: 'text-slate-500' }
+                        return (
+                          <tr key={d.id} className="border-t border-slate-100">
+                            <td className="px-4 py-2">
+                              <p className="font-medium text-slate-800">{d.title}</p>
+                              {d.description && <p className="text-xs text-slate-400">{d.description}</p>}
+                            </td>
+                            <td className="px-4 py-2 text-right text-slate-600">{d.target_value != null ? `${d.target_value.toLocaleString()}${d.unit ? ' ' + d.unit : ''}` : '—'}</td>
+                            <td className="px-4 py-2 text-right text-slate-600">{`${d.actual_value.toLocaleString()}${d.unit ? ' ' + d.unit : ''}`}</td>
+                            <td className="px-4 py-2 text-right">
+                              {pct != null ? (
+                                <div className="flex items-center justify-end gap-2">
+                                  <div className="w-16 bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                                    <div className={`h-1.5 rounded-full ${pct >= 100 ? 'bg-green-500' : 'bg-blue-500'}`} style={{ width: `${pct}%` }} />
+                                  </div>
+                                  <span className="text-slate-500 text-xs">{pct.toFixed(0)}%</span>
+                                </div>
+                              ) : <span className="text-slate-400">—</span>}
+                            </td>
+                            <td className={`px-4 py-2 text-xs font-medium capitalize ${statusColors[d.status] || 'text-slate-500'}`}>{DELIVERABLE_STATUS_LABELS[d.status] || d.status}</td>
+                            <td className="px-4 py-2 text-slate-500 text-xs">{d.due_date ? formatDate(d.due_date) : '—'}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
                   </table>
                 </div>
               )}

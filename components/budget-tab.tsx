@@ -35,12 +35,13 @@ interface BudgetTabProps {
   grantId: string
   expenses: any[]          // passed from parent — already loaded (used for total spend only)
   awardAmount: number | null
+  totalProjectCost: number | null
   canEdit: boolean
 }
 
 const emptyForm = { category: '', description: '', budgeted_amount: '', notes: '' }
 
-export function BudgetTab({ grantId, expenses, awardAmount, canEdit }: BudgetTabProps) {
+export function BudgetTab({ grantId, expenses, awardAmount, totalProjectCost, canEdit }: BudgetTabProps) {
   const [items, setItems] = useState<BudgetLineItem[]>([])
   const [allocations, setAllocations] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -92,7 +93,7 @@ export function BudgetTab({ grantId, expenses, awardAmount, canEdit }: BudgetTab
   const totalBudgeted = items.reduce((s, i) => s + i.budgeted_amount, 0)
   const totalSpent = items.reduce((s, i) => s + (spentByLineItem[i.id] || 0), 0)
   const totalRemaining = totalBudgeted - totalSpent
-  const unallocated = (awardAmount || 0) - totalBudgeted
+  const unallocated = (totalProjectCost ?? awardAmount ?? 0) - totalBudgeted
 
   // ── Dialog helpers ──────────────────────────────────────────────────────
 
@@ -186,10 +187,10 @@ export function BudgetTab({ grantId, expenses, awardAmount, canEdit }: BudgetTab
       {/* ── Summary cards ────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Total Budget', value: fmt(totalBudgeted), sub: awardAmount ? `of ${fmt(awardAmount)} awarded` : null, color: 'text-slate-800' },
+          { label: 'Total Budget', value: fmt(totalBudgeted), sub: totalProjectCost ? `of ${fmt(totalProjectCost)} project cost` : awardAmount ? `of ${fmt(awardAmount)} awarded` : null, color: 'text-slate-800' },
           { label: 'Total Spent', value: fmt(totalSpent), sub: `${totalBudgeted > 0 ? Math.round((totalSpent / totalBudgeted) * 100) : 0}% of budget`, color: totalSpent > totalBudgeted ? 'text-red-600' : 'text-slate-800' },
           { label: 'Remaining', value: fmt(totalRemaining), sub: 'budget balance', color: totalRemaining < 0 ? 'text-red-600' : 'text-emerald-600' },
-          { label: 'Unallocated', value: fmt(unallocated), sub: 'award amount not budgeted', color: unallocated < 0 ? 'text-red-600' : unallocated > 0 ? 'text-amber-600' : 'text-slate-800' },
+          { label: 'Unallocated', value: fmt(unallocated), sub: 'project cost not budgeted', color: unallocated < 0 ? 'text-red-600' : unallocated > 0 ? 'text-amber-600' : 'text-slate-800' },
         ].map(card => (
           <div key={card.label} className="bg-white border border-slate-200 rounded-xl p-4">
             <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">{card.label}</p>

@@ -32,6 +32,8 @@ import { Pencil, Trash2, CheckCircle2, Clock, AlertCircle, Sparkles } from 'luci
 import { useOrganization } from '@/contexts/organization-context'
 import { BudgetTab } from '@/components/budget-tab'
 import { GenerateReportDialog } from '@/components/generate-report-dialog'
+import { DeliverablesSection } from '@/components/deliverables-section'
+import { FundingSourcesSection } from '@/components/funding-sources-section'
 
 interface Grant {
   id: string
@@ -49,6 +51,7 @@ interface Grant {
   award_letter_name: string | null
   percent_complete: number
   scope_of_work: string | null
+  total_project_cost: number | null
 }
 
 export default function GrantDetailsPage() {
@@ -601,11 +604,21 @@ export default function GrantDetailsPage() {
                 </div>
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-6">
+                {/* Left: Total Project Cost, Status, Funding Agency */}
+                <div>
+                  <p className="text-sm font-medium text-slate-600">Total Project Cost</p>
+                  <p className="text-2xl font-bold text-slate-900 mt-1">{grant.total_project_cost ? formatCurrency(grant.total_project_cost) : 'Not specified'}</p>
+                </div>
+                {/* Right: Award Amount, Award Number, Program Type */}
+                <div>
+                  <p className="text-sm font-medium text-slate-600">Award Amount</p>
+                  <p className="text-2xl font-bold text-slate-900 mt-1">{formatCurrency(grant.award_amount)}</p>
+                </div>
                 <div>
                   <p className="text-sm font-medium text-slate-600">Status</p>
                   <Badge className={`mt-1 ${
-                    grant.status === 'active' 
-                      ? 'bg-green-100 text-green-800 hover:bg-green-100' 
+                    grant.status === 'active'
+                      ? 'bg-green-100 text-green-800 hover:bg-green-100'
                       : grant.status === 'pending'
                       ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100'
                       : 'bg-slate-100 text-slate-800 hover:bg-slate-100'
@@ -614,16 +627,26 @@ export default function GrantDetailsPage() {
                   </Badge>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-slate-600">Award Amount</p>
-                  <p className="text-2xl font-bold text-slate-900 mt-1">{formatCurrency(grant.award_amount)}</p>
+                  <p className="text-sm font-medium text-slate-600">Award Number</p>
+                  <p className="text-lg text-slate-900 mt-1">{grant.award_number || 'Not specified'}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-600">Funding Agency</p>
+                  <p className="text-lg text-slate-900 mt-1">{grant.funding_agency}</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-slate-600">Program Type</p>
                   <p className="text-lg text-slate-900 mt-1">{grant.program_type || 'Not specified'}</p>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-600">Award Number</p>
-                  <p className="text-lg text-slate-900 mt-1">{grant.award_number || 'Not specified'}</p>
+                <div className="col-span-2 grid grid-cols-2 gap-6 pt-4 border-t">
+                  <div>
+                    <p className="text-sm font-medium text-slate-600">Performance Period Start</p>
+                    <p className="text-lg text-slate-900 mt-1">{formatDate(grant.period_start)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-600">Performance Period End</p>
+                    <p className="text-lg text-slate-900 mt-1">{formatDate(grant.period_end)}</p>
+                  </div>
                 </div>
                 {/* Progress Metrics Row */}
                 <div className="col-span-2 grid grid-cols-3 gap-4 pt-4 border-t">
@@ -700,21 +723,12 @@ export default function GrantDetailsPage() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Performance Period</CardTitle>
-              </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-6">
-                <div>
-                  <p className="text-sm font-medium text-slate-600">Start Date</p>
-                  <p className="text-lg text-slate-900 mt-1">{formatDate(grant.period_start)}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-600">End Date</p>
-                  <p className="text-lg text-slate-900 mt-1">{formatDate(grant.period_end)}</p>
-                </div>
-              </CardContent>
-            </Card>
+            <FundingSourcesSection
+              grantId={params.id as string}
+              userRole={userRole}
+              awardAmount={grant.award_amount}
+              totalProjectCost={grant.total_project_cost}
+            />
 
             <Card>
               <CardHeader>
@@ -817,6 +831,8 @@ export default function GrantDetailsPage() {
                 </div>
               </CardContent>
             </Card>
+
+            <DeliverablesSection grantId={params.id as string} userRole={userRole} />
 
             {/* Scope of Work Card */}
             <Card>
@@ -1067,6 +1083,7 @@ export default function GrantDetailsPage() {
                   grantId={params.id as string}
                   expenses={expenses}
                   awardAmount={grant?.award_amount ?? null}
+                  totalProjectCost={grant?.total_project_cost ?? null}
                   canEdit={userRole !== 'viewer'}
                 />
               </CardContent>

@@ -14,21 +14,12 @@ export async function GET(
 
   const { id: grantId } = await params
 
-  // Fetch grant + membership in parallel
-  const [grantResult, membershipResult] = await Promise.all([
-    supabaseAdmin
-      .from('grants')
-      .select('id, grant_name, funding_agency, program_type, award_number, award_amount, period_start, period_end, status, percent_complete, organization_id')
-      .eq('id', grantId)
-      .single(),
-    supabaseAdmin
-      .from('grants')
-      .select('organization_id')
-      .eq('id', grantId)
-      .single()
-  ])
+  const { data: grant } = await supabaseAdmin
+    .from('grants')
+    .select('id, grant_name, funding_agency, program_type, award_number, award_amount, total_project_cost, period_start, period_end, status, percent_complete, organization_id')
+    .eq('id', grantId)
+    .single()
 
-  const grant = grantResult.data
   if (!grant) return NextResponse.json({ error: 'Grant not found' }, { status: 404 })
 
   const { data: membership } = await supabaseAdmin
@@ -41,7 +32,7 @@ export async function GET(
   if (!membership) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   // Fetch all related data in parallel
-  const [expensesResult, paymentsResult, requirementsResult, orgResult] = await Promise.all([
+  const [expensesResult, paymentsResult, requirementsResult, orgResult, deliverablesResult, fundingSourcesResult] = await Promise.all([
     supabaseAdmin
       .from('expenses')
       .select('id, expense_date, vendor, description, amount, category, invoice_number')
@@ -61,14 +52,26 @@ export async function GET(
       .from('organizations')
       .select('name')
       .eq('id', grant.organization_id)
-      .single()
+      .single(),
+    supabaseAdmin
+      .from('grant_deliverables')
+      .select('*')
+      .eq('grant_id', grantId)
+      .order('created_at', { ascending: true }),
+    supabaseAdmin
+      .from('grant_funding_sources')
+      .select('*')
+      .eq('grant_id', grantId)
+      .order('amount', { ascending: false }),
   ])
 
   const expenses = expensesResult.data || []
   const payments = paymentsResult.data || []
+  const deliverables = deliverablesResult.data || []
+  const fundingSources = fundingSourcesResult.data || []
   const orgName = orgResult.data?.name || ''
 
-  // Compute overdue status server-side (same logic as the page)
+  // Compute overdue status server-side
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const requirements = (requirementsResult.data || []).map((r: any) => {
@@ -83,6 +86,8 @@ export async function GET(
   const totalExpenses = expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0)
   const totalPayments = payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0)
   const awardAmount = parseFloat(grant.award_amount) || 0
+  const totalProjectCost = grant.total_project_cost ? parseFloat(grant.total_project_cost) : null
+  const totalFromSources = fundingSources.reduce((s: number, r: any) => s + (parseFloat(r.amount) || 0), 0)
 
   // Expenses by category
   const byCategory: Record<string, number> = {}
@@ -94,20 +99,22 @@ export async function GET(
     .map(([category, amount]) => ({ category, amount }))
     .sort((a, b) => b.amount - a.amount)
 
-  // Requirements breakdown
-  const completedReqs = requirements.filter(r => r.status === 'completed')
-  const openReqs = requirements.filter(r => r.status === 'open' || r.status === 'in_progress')
-  const overdueReqs = requirements.filter(r => r.status === 'overdue')
+  const completedReqs = requirements.filter((r: any) => r.status === 'completed')
+  const openReqs = requirements.filter((r: any) => r.status === 'open' || r.status === 'in_progress')
+  const overdueReqs = requirements.filter((r: any) => r.status === 'overdue')
 
   return NextResponse.json({
     grant: {
       ...grant,
       percent_complete: grant.percent_complete ?? 0,
+      total_project_cost: totalProjectCost,
     },
     organization: orgName,
     generatedAt: new Date().toISOString(),
     financials: {
       awardAmount,
+      totalProjectCost,
+      totalFromSources,
       totalExpenses,
       totalPayments,
       remainingBudget: awardAmount - totalExpenses,
@@ -123,5 +130,7 @@ export async function GET(
       open: openReqs,
       overdue: overdueReqs,
     },
+    deliverables,
+    fundingSources,
   })
 }

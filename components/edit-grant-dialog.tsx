@@ -33,6 +33,7 @@ interface Grant {
   award_letter_url: string | null
   award_letter_name: string | null
   percent_complete: number
+  total_project_cost: number | null
 }
 
 interface EditGrantDialogProps {
@@ -53,7 +54,8 @@ export function EditGrantDialog({ grant, open, onOpenChange, onGrantUpdated }: E
     period_start: grant.period_start || '',
     period_end: grant.period_end || '',
     status: grant.status,
-    percent_complete: (grant.percent_complete ?? 0).toString()
+    percent_complete: (grant.percent_complete ?? 0).toString(),
+    total_project_cost: grant.total_project_cost?.toString() || ''
   })
   const [newAwardLetterFile, setNewAwardLetterFile] = useState<File | null>(null)
   const [deleteAwardLetter, setDeleteAwardLetter] = useState(false)
@@ -70,7 +72,8 @@ export function EditGrantDialog({ grant, open, onOpenChange, onGrantUpdated }: E
       period_start: grant.period_start || '',
       period_end: grant.period_end || '',
       status: grant.status,
-      percent_complete: (grant.percent_complete ?? 0).toString()
+      percent_complete: (grant.percent_complete ?? 0).toString(),
+      total_project_cost: grant.total_project_cost?.toString() || ''
     })
   }, [grant])
 
@@ -142,7 +145,8 @@ export function EditGrantDialog({ grant, open, onOpenChange, onGrantUpdated }: E
         status: formData.status,
         award_letter_url: awardLetterUrl,
         award_letter_name: awardLetterName,
-        percent_complete: parseInt(formData.percent_complete) || 0
+        percent_complete: parseInt(formData.percent_complete) || 0,
+        total_project_cost: formData.total_project_cost ? parseFloat(formData.total_project_cost) : null
       })
     })
 
@@ -228,6 +232,21 @@ export function EditGrantDialog({ grant, open, onOpenChange, onGrantUpdated }: E
               onChange={(e) => setFormData({ ...formData, award_amount: e.target.value })}
               placeholder="e.g., 250000"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="total_project_cost">Total Project Cost ($)</Label>
+            <Input
+              id="total_project_cost"
+              type="number"
+              step="0.01"
+              value={formData.total_project_cost}
+              onChange={(e) => setFormData({ ...formData, total_project_cost: e.target.value })}
+              placeholder="e.g., 350000"
+            />
+            <p className="text-xs text-slate-500">
+              The full project cost including all funding sources (may differ from award amount)
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
