@@ -460,7 +460,7 @@ export async function GET(
     .replace(/[^a-zA-Z0-9-_]/g, '-')
     .slice(0, 50)
 
-  return new Response(pdfBytes, {
+  return new Response(Buffer.from(pdfBytes), {
     headers: {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="reimbursement-packet-${safeTitle}.pdf"`,
