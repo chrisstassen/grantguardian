@@ -174,21 +174,34 @@ function typeLabel(t: string) {
   return REQUEST_TYPE_OPTIONS.find(o => o.value === t)?.label ?? t
 }
 
-// ─── Attachments are shown for all request types ─────────────────────────────
 // ─── Attachments Sub-Component ────────────────────────────────────────────────
+// Uses server-side API routes (supabaseAdmin) so no storage bucket policies needed.
 
-function AttachmentsSection({ requestId, canEdit }: { requestId: string; canEdit: boolean }) {
-  const [attachments, setAttachments] = useState<RequestAttachment[]>([])
+interface AttachmentWithUrl extends RequestAttachment {
+  download_url: string | null
+}
+
+function AttachmentsSection({ requestId, grantId, canEdit }: {
+  requestId: string
+  grantId: string
+  canEdit: boolean
+}) {
+  const [attachments, setAttachments] = useState<AttachmentWithUrl[]>([])
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const baseUrl = `/api/user/grants/${grantId}/reimbursement-requests/${requestId}/attachments`
+
   const load = async () => {
-    const { data } = await supabase
-      .from('grant_request_attachments')
-      .select('*')
-      .eq('request_id', requestId)
-      .order('created_at', { ascending: true })
-    setAttachments(data || [])
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const res = await fetch(baseUrl, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+    if (res.ok) {
+      const data = await res.json()
+      setAttachments(data.attachments || [])
+    }
   }
 
   useEffect(() => { load() }, [requestId])
@@ -196,46 +209,42 @@ function AttachmentsSection({ requestId, canEdit }: { requestId: string; canEdit
   const handleUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return
     setUploading(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setUploading(false); return }
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { setUploading(false); return }
 
     for (const file of Array.from(files)) {
-      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
-      const filePath = `${requestId}/${Date.now()}_${safeName}`
-      const { error: uploadErr } = await supabase.storage
-        .from('grant-request-attachments')
-        .upload(filePath, file)
-      if (!uploadErr) {
-        await supabase.from('grant_request_attachments').insert([{
-          request_id: requestId,
-          uploaded_by_user_id: user.id,
-          file_name: file.name,
-          file_path: filePath,
-          file_type: file.type,
-          file_size: file.size,
-        }])
+      const form = new FormData()
+      form.append('file', file)
+      const res = await fetch(baseUrl, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: form,
+      })
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}))
+        alert('Upload failed: ' + (d.error || 'Unknown error'))
       }
     }
     setUploading(false)
     load()
   }
 
-  const handleDownload = async (att: RequestAttachment) => {
-    const { data, error } = await supabase.storage
-      .from('grant-request-attachments')
-      .download(att.file_path)
-    if (error) { alert('Download error: ' + error.message); return }
-    const url = URL.createObjectURL(data)
+  const handleDownload = (att: AttachmentWithUrl) => {
+    if (!att.download_url) { alert('Download URL unavailable — please reload and try again.'); return }
     const a = document.createElement('a')
-    a.href = url; a.download = att.file_name
-    document.body.appendChild(a); a.click()
-    document.body.removeChild(a); URL.revokeObjectURL(url)
+    a.href = att.download_url
+    a.download = att.file_name
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
   }
 
-  const handleDelete = async (att: RequestAttachment) => {
-    if (!confirm(`Delete ${att.file_name}?`)) return
-    await supabase.storage.from('grant-request-attachments').remove([att.file_path])
-    await supabase.from('grant_request_attachments').delete().eq('id', att.id)
+  const handleDelete = async (att: AttachmentWithUrl) => {
+    if (!confirm(`Delete "${att.file_name}"?`)) return
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    await fetch(`${baseUrl}?attachmentId=${att.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
     load()
   }
 
@@ -265,7 +274,7 @@ function AttachmentsSection({ requestId, canEdit }: { requestId: string; canEdit
             <div key={att.id} className="flex items-center gap-2 p-2 bg-white border border-slate-200 rounded text-xs">
               <FileText className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
               <span className="flex-1 truncate font-medium text-slate-700">{att.file_name}</span>
-              {att.file_size && (
+              {att.file_size != null && (
                 <span className="text-slate-400">{(att.file_size / 1024).toFixed(0)} KB</span>
               )}
               <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => handleDownload(att)}>
@@ -726,7 +735,7 @@ function RequestExpandedDetails({ req, details, canEdit, grantId, onPaymentLink 
       )}
 
       {/* Attachments for all request types */}
-      <AttachmentsSection requestId={req.id} canEdit={canEdit} />
+      <AttachmentsSection requestId={req.id} grantId={grantId} canEdit={canEdit} />
     </div>
   )
 }
@@ -1231,7 +1240,7 @@ export function RequestsTab({ grantId, expenses, payments, userRole, onCountChan
             {/* Attachments — only available when editing an existing request */}
             {editingRequest && (
               <div className="pt-2 border-t border-slate-100">
-                <AttachmentsSection requestId={editingRequest.id} canEdit={canEdit} />
+                <AttachmentsSection requestId={editingRequest.id} grantId={grantId} canEdit={canEdit} />
               </div>
             )}
 

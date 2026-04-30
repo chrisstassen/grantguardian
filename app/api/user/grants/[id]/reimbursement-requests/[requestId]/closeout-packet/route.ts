@@ -57,10 +57,13 @@ const sanitize = (s: string | null | undefined): string => {
 }
 
 function truncate(text: string, font: any, size: number, maxPx: number): string {
-  let t = sanitize(text)
+  if (!text) return '-'
+  const safe = sanitize(text)
+  if (!safe) return '-'
+  let t = safe
   while (t.length > 1 && font.widthOfTextAtSize(t, size) > maxPx) t = t.slice(0, -1)
-  if (t.length < sanitize(text).length) t = t.slice(0, -1) + '...'
-  return t
+  if (t.length < safe.length) t = (t.slice(0, -1) || '') + '...'
+  return t || '-'
 }
 
 interface Ctx { page: any; doc: PDFDocument; bold: any; regular: any; y: number }
@@ -91,14 +94,17 @@ function labelValue(ctx: Ctx, label: string, value: string, x2 = MARGIN + 160): 
 }
 
 function wrapText(ctx: Ctx, text: string, indent = 12): Ctx {
-  const words = sanitize(text).split(' ')
+  if (!text?.trim()) return ctx
+  const words = sanitize(text).split(/\s+/).filter(Boolean)
   let line = ''
   for (const word of words) {
     const test = line ? line + ' ' + word : word
     if (ctx.regular.widthOfTextAtSize(test, 9) > CONTENT_W - indent) {
-      ctx = checkPage(ctx, 14)
-      ctx.page.drawText(line, { x: MARGIN + indent, y: ctx.y, size: 9, font: ctx.regular, color: rgb(0.2, 0.2, 0.2) })
-      ctx.y -= 13
+      if (line) { // never call drawText with empty string — pdf-lib throws
+        ctx = checkPage(ctx, 14)
+        ctx.page.drawText(line, { x: MARGIN + indent, y: ctx.y, size: 9, font: ctx.regular, color: rgb(0.2, 0.2, 0.2) })
+        ctx.y -= 13
+      }
       line = word
     } else { line = test }
   }
@@ -170,6 +176,7 @@ export async function GET(
   const percentPayments = awardAmount > 0 ? (totalPayments / awardAmount) * 100 : 0
 
   // ── Build PDF ─────────────────────────────────────────────────────────────
+  try {
   const doc = await PDFDocument.create()
   const bold = await doc.embedFont(StandardFonts.HelveticaBold)
   const regular = await doc.embedFont(StandardFonts.Helvetica)
@@ -361,11 +368,18 @@ export async function GET(
   }
 
   const pdfBytes = await doc.save()
-  const safeTitle = grant.grant_name.replace(/[^a-zA-Z0-9-_]/g, '-').slice(0, 40)
+  const safeTitle = sanitize(grant.grant_name).replace(/[^a-zA-Z0-9-_]/g, '-').slice(0, 40)
   return new Response(Buffer.from(pdfBytes), {
     headers: {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="closeout-packet-${safeTitle}.pdf"`,
     },
   })
+  } catch (err: any) {
+    console.error('Closeout packet generation error:', err)
+    return NextResponse.json(
+      { error: 'PDF generation failed: ' + (err?.message ?? String(err)) },
+      { status: 500 }
+    )
+  }
 }

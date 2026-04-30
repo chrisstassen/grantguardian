@@ -263,6 +263,25 @@ export default function GrantDetailsPage() {
     }
   }
 
+  const loadRequestsData = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    try {
+      const res = await fetch(`/api/user/grants/${params.id}/reimbursement-requests`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (res.ok) {
+        const data = await res.json()
+        const reqs: any[] = data.requests || []
+        setRequestsCount(reqs.length)
+        setRequestLinkedExpenseIds(new Set(reqs.flatMap((r: any) => r.expense_ids || [])))
+        setRequestLinkedPaymentIds(new Set(
+          reqs.filter((r: any) => r.payment_received_id).map((r: any) => r.payment_received_id as string)
+        ))
+      }
+    } catch { /* non-blocking */ }
+  }
+
   const loadTeamMembers = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user || !activeOrg) return
@@ -410,6 +429,7 @@ export default function GrantDetailsPage() {
     loadPayments()
     loadNotes()
     loadTeamMembers()
+    loadRequestsData()
   }, [params.id, activeOrg])
 
   const handleDelete = async () => {
