@@ -18,7 +18,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import {
-  Plus, ChevronDown, ChevronUp, Pencil, Trash2, FileDown,
+  Plus, ChevronDown, ChevronUp, Trash2, FileDown,
   ReceiptText, Link2, Unlink, CreditCard, Loader2, Upload, Download, FileText,
 } from 'lucide-react'
 
@@ -77,6 +77,8 @@ interface RequestsTabProps {
   expenses: any[]
   payments: any[]
   userRole: string
+  onCountChange?: (count: number) => void
+  onLinkedIdsChange?: (expenseIds: string[], paymentIds: string[]) => void
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -172,6 +174,7 @@ function typeLabel(t: string) {
   return REQUEST_TYPE_OPTIONS.find(o => o.value === t)?.label ?? t
 }
 
+// ─── Attachments are shown for all request types ─────────────────────────────
 // ─── Attachments Sub-Component ────────────────────────────────────────────────
 
 function AttachmentsSection({ requestId, canEdit }: { requestId: string; canEdit: boolean }) {
@@ -590,7 +593,6 @@ function RequestExpandedDetails({ req, details, canEdit, grantId, onPaymentLink 
   onPaymentLink: () => void
 }) {
   const td = req.type_data || {}
-  const needsAttachments = req.request_type !== 'reimbursement'
 
   return (
     <div className="space-y-4">
@@ -723,20 +725,21 @@ function RequestExpandedDetails({ req, details, canEdit, grantId, onPaymentLink 
         </div>
       )}
 
-      {/* Attachments for non-reimbursement types */}
-      {needsAttachments && <AttachmentsSection requestId={req.id} canEdit={canEdit} />}
+      {/* Attachments for all request types */}
+      <AttachmentsSection requestId={req.id} canEdit={canEdit} />
     </div>
   )
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function RequestsTab({ grantId, expenses, payments, userRole }: RequestsTabProps) {
+export function RequestsTab({ grantId, expenses, payments, userRole, onCountChange, onLinkedIdsChange }: RequestsTabProps) {
   const canEdit = userRole !== 'viewer'
 
   // List state
   const [requests, setRequests] = useState<GrantRequest[]>([])
   const [loading, setLoading] = useState(true)
+  const [filterType, setFilterType] = useState<RequestType | 'all'>('all')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [loadingDetails, setLoadingDetails] = useState<string | null>(null)
   const [detailsCache, setDetailsCache] = useState<Record<string, { expenses: LinkedExpense[]; payment: any }>>({})
@@ -787,6 +790,14 @@ export function RequestsTab({ grantId, expenses, payments, userRole }: RequestsT
   }
 
   useEffect(() => { load() }, [grantId])
+
+  // Notify parent when requests change (for tab badge + expense/payment indicators)
+  useEffect(() => {
+    onCountChange?.(requests.length)
+    const expIds = requests.flatMap(r => r.expense_ids || [])
+    const payIds = requests.filter(r => r.payment_received_id).map(r => r.payment_received_id as string)
+    onLinkedIdsChange?.(expIds, payIds)
+  }, [requests])
 
   // ── Expand/collapse ─────────────────────────────────────────────────────────
   const toggleExpand = async (req: GrantRequest) => {
@@ -896,7 +907,7 @@ export function RequestsTab({ grantId, expenses, payments, userRole }: RequestsT
       setFormOpen(false)
       if (editingRequest) {
         await refreshRequest(editingRequest.id)
-        setDetailsCache(prev => { const n = { ...prev }; delete n[editingRequest.id]; return n })
+        // Note: do NOT delete the cache here — refreshRequest already updates it with fresh data
       } else {
         await load()
       }
@@ -1010,6 +1021,13 @@ export function RequestsTab({ grantId, expenses, payments, userRole }: RequestsT
 
   if (loading) return <div className="py-12 text-center text-slate-400">Loading requests…</div>
 
+  // Filter
+  const filteredRequests = filterType === 'all' ? requests : requests.filter(r => r.request_type === filterType)
+  const typeCounts = requests.reduce<Record<string, number>>((acc, r) => {
+    acc[r.request_type] = (acc[r.request_type] || 0) + 1
+    return acc
+  }, {})
+
   return (
     <div className="space-y-6">
 
@@ -1031,6 +1049,35 @@ export function RequestsTab({ grantId, expenses, payments, userRole }: RequestsT
         )}
       </div>
 
+      {/* Filter pills */}
+      {requests.length > 1 && (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <button
+            onClick={() => setFilterType('all')}
+            className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+              filterType === 'all'
+                ? 'bg-slate-900 text-white border-slate-900'
+                : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'
+            }`}
+          >
+            All ({requests.length})
+          </button>
+          {REQUEST_TYPE_OPTIONS.filter(o => typeCounts[o.value]).map(o => (
+            <button
+              key={o.value}
+              onClick={() => setFilterType(filterType === o.value ? 'all' : o.value as RequestType)}
+              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                filterType === o.value
+                  ? 'bg-slate-900 text-white border-slate-900'
+                  : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'
+              }`}
+            >
+              {o.label} ({typeCounts[o.value]})
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Empty state */}
       {requests.length === 0 && (
         <div className="py-16 text-center border-2 border-dashed border-slate-200 rounded-xl">
@@ -1043,7 +1090,7 @@ export function RequestsTab({ grantId, expenses, payments, userRole }: RequestsT
 
       {/* Request cards */}
       <div className="space-y-3">
-        {requests.map(req => {
+        {filteredRequests.map(req => {
           const isExpanded = expandedId === req.id
           const details = detailsCache[req.id]
           const isLoadingDetails = loadingDetails === req.id
@@ -1053,7 +1100,11 @@ export function RequestsTab({ grantId, expenses, payments, userRole }: RequestsT
           return (
             <div key={req.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden">
               <div className="flex items-start gap-3 p-4">
-                <div className="flex-1 min-w-0">
+                {/* Clickable main content — opens edit dialog for editors, expands for viewers */}
+                <div
+                  className="flex-1 min-w-0 cursor-pointer"
+                  onClick={() => canEdit ? openEdit(req) : toggleExpand(req)}
+                >
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-slate-900 text-sm">{req.title}</span>
                     {req.request_number && <span className="text-xs text-slate-400 font-mono">#{req.request_number}</span>}
@@ -1078,14 +1129,11 @@ export function RequestsTab({ grantId, expenses, payments, userRole }: RequestsT
                     </Button>
                   )}
                   {canGeneratePacket && (
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0" title="Generate PDF packet"
+                    <Button variant="ghost" size="sm" className="h-8 px-2 gap-1.5 text-xs text-slate-600"
+                      title="Generate PDF packet"
                       onClick={() => handleGeneratePacket(req)} disabled={isGenerating}>
                       {isGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
-                    </Button>
-                  )}
-                  {canEdit && (
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEdit(req)}>
-                      <Pencil className="h-3.5 w-3.5" />
+                      Generate PDF
                     </Button>
                   )}
                   {canEdit && (
@@ -1184,6 +1232,13 @@ export function RequestsTab({ grantId, expenses, payments, userRole }: RequestsT
               <Textarea value={formNotes} onChange={e => setFormNotes(e.target.value)}
                 placeholder="Any internal notes…" rows={2} />
             </div>
+
+            {/* Attachments — only available when editing an existing request */}
+            {editingRequest && (
+              <div className="pt-2 border-t border-slate-100">
+                <AttachmentsSection requestId={editingRequest.id} canEdit={canEdit} />
+              </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setFormOpen(false)}>Cancel</Button>

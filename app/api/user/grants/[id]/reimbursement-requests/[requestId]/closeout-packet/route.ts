@@ -50,6 +50,12 @@ const fmtDate = (d: string | null) => {
   return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 }
 
+// Strip characters outside Latin-1 (Helvetica only supports WinAnsi/Latin-1)
+const sanitize = (s: string | null | undefined): string => {
+  if (!s) return ''
+  return s.replace(/[^\x00-\xFF]/g, '-')
+}
+
 function truncate(text: string, font: any, size: number, maxPx: number): string {
   let t = text
   while (t.length > 1 && font.widthOfTextAtSize(t, size) > maxPx) t = t.slice(0, -1)
@@ -85,7 +91,7 @@ function labelValue(ctx: Ctx, label: string, value: string, x2 = MARGIN + 160): 
 }
 
 function wrapText(ctx: Ctx, text: string, indent = 12): Ctx {
-  const words = text.split(' ')
+  const words = sanitize(text).split(' ')
   let line = ''
   for (const word of words) {
     const test = line ? line + ' ' + word : word
@@ -177,10 +183,10 @@ export async function GET(
   ctx.y = PAGE_H - 120
 
   ctx = sectionHeader(ctx, 'Grant Information')
-  ctx = labelValue(ctx, 'Grant Name', grant.grant_name)
-  ctx = labelValue(ctx, 'Funding Agency', grant.funding_agency)
-  if (grant.award_number) ctx = labelValue(ctx, 'Award Number', grant.award_number)
-  if (grant.period_start || grant.period_end) ctx = labelValue(ctx, 'Performance Period', `${fmtDate(grant.period_start)} – ${fmtDate(grant.period_end)}`)
+  ctx = labelValue(ctx, 'Grant Name', sanitize(grant.grant_name))
+  ctx = labelValue(ctx, 'Funding Agency', sanitize(grant.funding_agency))
+  if (grant.award_number) ctx = labelValue(ctx, 'Award Number', sanitize(grant.award_number))
+  if (grant.period_start || grant.period_end) ctx = labelValue(ctx, 'Performance Period', `${fmtDate(grant.period_start)} - ${fmtDate(grant.period_end)}`)
 
   ctx.y -= 8
   ctx = sectionHeader(ctx, 'Closeout Details')
@@ -231,12 +237,12 @@ export async function GET(
       const bg = i % 2 === 0 ? rgb(1, 1, 1) : rgb(0.97, 0.97, 0.99)
       ctx.page.drawRectangle({ x: MARGIN, y: ctx.y - 3, width: CONTENT_W, height: 16, color: bg })
       const prog = d.status === 'completed' ? 100 : d.status === 'not_started' ? 0 : (d.progress_percent ?? 0)
-      ctx.page.drawText(truncate(d.title, regular, 8, 180), { x: dCols.title, y: ctx.y, size: 8, font: regular, color: rgb(0.1, 0.1, 0.1) })
-      ctx.page.drawText(d.target_value != null ? String(d.target_value) : '—', { x: dCols.target, y: ctx.y, size: 8, font: regular, color: rgb(0.3, 0.3, 0.3) })
-      ctx.page.drawText(d.actual_value != null ? String(d.actual_value) : '—', { x: dCols.actual, y: ctx.y, size: 8, font: regular, color: rgb(0.3, 0.3, 0.3) })
+      ctx.page.drawText(truncate(sanitize(d.title), regular, 8, 180), { x: dCols.title, y: ctx.y, size: 8, font: regular, color: rgb(0.1, 0.1, 0.1) })
+      ctx.page.drawText(d.target_value != null ? String(d.target_value) : '-', { x: dCols.target, y: ctx.y, size: 8, font: regular, color: rgb(0.3, 0.3, 0.3) })
+      ctx.page.drawText(d.actual_value != null ? String(d.actual_value) : '-', { x: dCols.actual, y: ctx.y, size: 8, font: regular, color: rgb(0.3, 0.3, 0.3) })
       ctx.page.drawText(`${prog}%`, { x: dCols.prog, y: ctx.y, size: 8, font: regular, color: rgb(0.3, 0.3, 0.3) })
-      ctx.page.drawText(d.status?.replace(/_/g, ' ') || '—', { x: dCols.status, y: ctx.y, size: 8, font: regular, color: rgb(0.3, 0.3, 0.3) })
-      ctx.page.drawText(d.due_date ? fmtDate(d.due_date).slice(0, 12) : '—', { x: dCols.due, y: ctx.y, size: 8, font: regular, color: rgb(0.3, 0.3, 0.3) })
+      ctx.page.drawText(sanitize(d.status?.replace(/_/g, ' ') || '-'), { x: dCols.status, y: ctx.y, size: 8, font: regular, color: rgb(0.3, 0.3, 0.3) })
+      ctx.page.drawText(d.due_date ? fmtDate(d.due_date).slice(0, 12) : '-', { x: dCols.due, y: ctx.y, size: 8, font: regular, color: rgb(0.3, 0.3, 0.3) })
       ctx.y -= 16
     })
   }
@@ -267,9 +273,9 @@ export async function GET(
       ctx.page.drawRectangle({ x: MARGIN, y: ctx.y - 3, width: CONTENT_W, height: 16, color: bg })
       ctx.page.drawText(String(i + 1), { x: eCols.num, y: ctx.y, size: 8, font: regular, color: rgb(0.4, 0.4, 0.4) })
       ctx.page.drawText(fmtDate(exp.expense_date).slice(0, 12), { x: eCols.date, y: ctx.y, size: 8, font: regular, color: rgb(0.2, 0.2, 0.2) })
-      ctx.page.drawText(truncate(exp.vendor || '', regular, 8, 165), { x: eCols.vendor, y: ctx.y, size: 8, font: regular, color: rgb(0.1, 0.1, 0.1) })
-      ctx.page.drawText(truncate(exp.category || '—', regular, 8, 80), { x: eCols.cat, y: ctx.y, size: 8, font: regular, color: rgb(0.3, 0.3, 0.3) })
-      ctx.page.drawText(truncate(exp.invoice_number || '—', regular, 8, 80), { x: eCols.inv, y: ctx.y, size: 8, font: regular, color: rgb(0.3, 0.3, 0.3) })
+      ctx.page.drawText(truncate(sanitize(exp.vendor || ''), regular, 8, 165), { x: eCols.vendor, y: ctx.y, size: 8, font: regular, color: rgb(0.1, 0.1, 0.1) })
+      ctx.page.drawText(truncate(sanitize(exp.category || '-'), regular, 8, 80), { x: eCols.cat, y: ctx.y, size: 8, font: regular, color: rgb(0.3, 0.3, 0.3) })
+      ctx.page.drawText(truncate(sanitize(exp.invoice_number || '-'), regular, 8, 80), { x: eCols.inv, y: ctx.y, size: 8, font: regular, color: rgb(0.3, 0.3, 0.3) })
       ctx.page.drawText(fmt(exp.amount), { x: eCols.amt, y: ctx.y, size: 8, font: bold, color: rgb(0.1, 0.3, 0.1) })
       ctx.y -= 16
     })
@@ -289,8 +295,8 @@ export async function GET(
 
     ctx = newPage(doc, bold, regular)
     ctx.page.drawRectangle({ x: 0, y: PAGE_H - 80, width: PAGE_W, height: 80, color: rgb(0.18, 0.28, 0.45) })
-    ctx.page.drawText(`APPENDIX – EXPENSE ${i + 1}`, { x: MARGIN, y: PAGE_H - 35, size: 11, font: bold, color: rgb(0.7, 0.8, 1.0) })
-    ctx.page.drawText(truncate(exp.vendor || '', bold, 14, CONTENT_W - 120), { x: MARGIN, y: PAGE_H - 56, size: 14, font: bold, color: rgb(1, 1, 1) })
+    ctx.page.drawText(`APPENDIX - EXPENSE ${i + 1}`, { x: MARGIN, y: PAGE_H - 35, size: 11, font: bold, color: rgb(0.7, 0.8, 1.0) })
+    ctx.page.drawText(truncate(sanitize(exp.vendor || ''), bold, 14, CONTENT_W - 120), { x: MARGIN, y: PAGE_H - 56, size: 14, font: bold, color: rgb(1, 1, 1) })
     ctx.page.drawText(fmt(exp.amount), { x: PAGE_W - MARGIN - 110, y: PAGE_H - 52, size: 13, font: bold, color: rgb(0.7, 1.0, 0.7) })
     ctx.y = PAGE_H - 100
 

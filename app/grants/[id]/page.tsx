@@ -82,6 +82,9 @@ export default function GrantDetailsPage() {
   const [editingScopeOfWork, setEditingScopeOfWork] = useState(false)
   const [scopeOfWorkDraft, setScopeOfWorkDraft] = useState('')
   const [savingScopeOfWork, setSavingScopeOfWork] = useState(false)
+  const [requestsCount, setRequestsCount] = useState(0)
+  const [requestLinkedExpenseIds, setRequestLinkedExpenseIds] = useState<Set<string>>(new Set())
+  const [requestLinkedPaymentIds, setRequestLinkedPaymentIds] = useState<Set<string>>(new Set())
 
   const defaultTab = searchParams?.get('tab') || 'summary'
 
@@ -575,6 +578,9 @@ export default function GrantDetailsPage() {
                 className="flex-1 whitespace-nowrap border border-slate-300 border-r-0 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
               >
                 Requests
+                {requestsCount > 0 && (
+                  <Badge variant="secondary" className="ml-1 xl:ml-2 text-xs">{requestsCount}</Badge>
+                )}
               </TabsTrigger>
               <TabsTrigger
                 value="notes"
@@ -1168,6 +1174,11 @@ export default function GrantDetailsPage() {
                                 📎 {expense.expense_documents[0].count} document{expense.expense_documents[0].count === 1 ? '' : 's'}
                               </span>
                             )}
+                            {requestLinkedExpenseIds.has(expense.id) && (
+                              <span className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded">
+                                📋 In Request
+                              </span>
+                            )}
                           </div>
                           {expense.description && (
                             <p className="text-sm text-slate-600 mt-1">{expense.description}</p>
@@ -1258,6 +1269,11 @@ export default function GrantDetailsPage() {
                                 Ref: {payment.reference_number}
                               </span>
                             )}
+                            {requestLinkedPaymentIds.has(payment.id) && (
+                              <span className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded">
+                                📋 Linked to Request
+                              </span>
+                            )}
                           </div>
                           {payment.notes && (
                             <p className="text-sm text-slate-600 mt-1">{payment.notes}</p>
@@ -1286,6 +1302,11 @@ export default function GrantDetailsPage() {
               expenses={expenses}
               payments={payments}
               userRole={userRole}
+              onCountChange={setRequestsCount}
+              onLinkedIdsChange={(expIds, payIds) => {
+                setRequestLinkedExpenseIds(new Set(expIds))
+                setRequestLinkedPaymentIds(new Set(payIds))
+              }}
             />
           </TabsContent>
 
