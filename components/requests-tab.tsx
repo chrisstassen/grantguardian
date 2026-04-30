@@ -905,12 +905,7 @@ export function RequestsTab({ grantId, expenses, payments, userRole, onCountChan
     setSaving(false)
     if (res.ok) {
       setFormOpen(false)
-      if (editingRequest) {
-        await refreshRequest(editingRequest.id)
-        // Note: do NOT delete the cache here — refreshRequest already updates it with fresh data
-      } else {
-        await load()
-      }
+      await load()
     } else {
       const d = await res.json()
       alert('Error: ' + d.error)

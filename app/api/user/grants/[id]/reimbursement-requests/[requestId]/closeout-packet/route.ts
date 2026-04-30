@@ -57,9 +57,9 @@ const sanitize = (s: string | null | undefined): string => {
 }
 
 function truncate(text: string, font: any, size: number, maxPx: number): string {
-  let t = text
+  let t = sanitize(text)
   while (t.length > 1 && font.widthOfTextAtSize(t, size) > maxPx) t = t.slice(0, -1)
-  if (t.length < text.length) t = t.slice(0, -1) + '…'
+  if (t.length < sanitize(text).length) t = t.slice(0, -1) + '...'
   return t
 }
 
@@ -178,7 +178,7 @@ export async function GET(
   let ctx = newPage(doc, bold, regular)
   ctx.page.drawRectangle({ x: 0, y: PAGE_H - 100, width: PAGE_W, height: 100, color: rgb(0.08, 0.12, 0.22) })
   ctx.page.drawText('GRANT CLOSEOUT PACKET', { x: MARGIN, y: PAGE_H - 42, size: 18, font: bold, color: rgb(1, 1, 1) })
-  ctx.page.drawText(orgName, { x: MARGIN, y: PAGE_H - 62, size: 11, font: regular, color: rgb(0.7, 0.8, 1.0) })
+  ctx.page.drawText(sanitize(orgName), { x: MARGIN, y: PAGE_H - 62, size: 11, font: regular, color: rgb(0.7, 0.8, 1.0) })
   ctx.page.drawText(`Generated: ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`, { x: PAGE_W - MARGIN - 180, y: PAGE_H - 82, size: 9, font: regular, color: rgb(0.6, 0.7, 0.9) })
   ctx.y = PAGE_H - 120
 
@@ -301,14 +301,14 @@ export async function GET(
     ctx.y = PAGE_H - 100
 
     ctx = labelValue(ctx, 'Date', fmtDate(exp.expense_date))
-    ctx = labelValue(ctx, 'Category', exp.category || '—')
-    if (exp.invoice_number) ctx = labelValue(ctx, 'Invoice #', exp.invoice_number)
+    ctx = labelValue(ctx, 'Category', sanitize(exp.category) || '-')
+    if (exp.invoice_number) ctx = labelValue(ctx, 'Invoice #', sanitize(exp.invoice_number))
 
     ctx.y -= 8
     ctx.page.drawText(`Supporting Documents (${docs.length}):`, { x: MARGIN, y: ctx.y, size: 9, font: bold, color: rgb(0.4, 0.4, 0.4) })
     ctx.y -= 14
     docs.forEach((d, di) => {
-      ctx.page.drawText(`${di + 1}. ${d.file_name}`, { x: MARGIN + 8, y: ctx.y, size: 9, font: regular, color: rgb(0.2, 0.2, 0.2) })
+      ctx.page.drawText(`${di + 1}. ${sanitize(d.file_name)}`, { x: MARGIN + 8, y: ctx.y, size: 9, font: regular, color: rgb(0.2, 0.2, 0.2) })
       ctx.y -= 13
     })
 
