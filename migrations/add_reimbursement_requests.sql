@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS reimbursement_requests (
   -- Multiple requests can point to the same payment (many→one).
   payment_received_id uuid REFERENCES payments_received(id) ON DELETE SET NULL,
   notes text,
-  created_by_user_id uuid NOT NULL REFERENCES profiles(id),
+  created_by_user_id uuid NOT NULL REFERENCES user_profiles(id),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );

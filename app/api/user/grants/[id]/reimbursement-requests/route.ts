@@ -95,6 +95,8 @@ export async function POST(
       description: body.description?.trim() || null,
       status: 'pending_submission',
       notes: body.notes?.trim() || null,
+      request_type: body.request_type || 'reimbursement',
+      type_data: body.type_data || null,
       created_by_user_id: auth.user.id,
     })
     .select()

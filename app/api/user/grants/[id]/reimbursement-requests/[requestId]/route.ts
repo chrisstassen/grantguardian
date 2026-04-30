@@ -99,6 +99,7 @@ export async function PATCH(
   if (body.submitted_date !== undefined) updates.submitted_date = body.submitted_date || null
   if (body.payment_received_id !== undefined) updates.payment_received_id = body.payment_received_id || null
   if (body.notes !== undefined) updates.notes = body.notes?.trim() || null
+  if (body.type_data !== undefined) updates.type_data = body.type_data
 
   const { data: updated, error } = await supabaseAdmin
     .from('reimbursement_requests')

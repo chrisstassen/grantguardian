@@ -34,7 +34,7 @@ import { BudgetTab } from '@/components/budget-tab'
 import { GenerateReportDialog } from '@/components/generate-report-dialog'
 import { DeliverablesSection } from '@/components/deliverables-section'
 import { FundingSourcesSection } from '@/components/funding-sources-section'
-import { ReimbursementTab } from '@/components/reimbursement-tab'
+import { RequestsTab } from '@/components/requests-tab'
 
 interface Grant {
   id: string
@@ -571,20 +571,19 @@ export default function GrantDetailsPage() {
                 <Badge variant="secondary" className="ml-1 xl:ml-2 text-xs">{payments.length}</Badge>
               </TabsTrigger>
               <TabsTrigger
-                value="notes"
+                value="requests"
                 className="flex-1 whitespace-nowrap border border-slate-300 border-r-0 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
+              >
+                Requests
+              </TabsTrigger>
+              <TabsTrigger
+                value="notes"
+                className="flex-1 whitespace-nowrap border border-slate-300 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
               >
                 Notes
                 {totalNotesCount > 0 && (
                   <Badge variant="secondary" className="ml-1 xl:ml-2 text-xs">{totalNotesCount}</Badge>
                 )}
-              </TabsTrigger>
-              <TabsTrigger
-                value="reimbursements"
-                className="flex-1 whitespace-nowrap border border-slate-300 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
-              >
-                <span className="hidden xl:inline">Reimbursements</span>
-                <span className="xl:hidden">Reimb.</span>
               </TabsTrigger>
             </TabsList>
           </div>
@@ -1280,6 +1279,16 @@ export default function GrantDetailsPage() {
             </Card>
           </TabsContent>
 
+          {/* Requests Tab */}
+          <TabsContent value="requests">
+            <RequestsTab
+              grantId={params.id as string}
+              expenses={expenses}
+              payments={payments}
+              userRole={userRole}
+            />
+          </TabsContent>
+
           {/* Notes Tab */}
           <TabsContent value="notes">
             <Card>
@@ -1382,15 +1391,6 @@ export default function GrantDetailsPage() {
             </Card>
           </TabsContent>
 
-          {/* Reimbursements Tab */}
-          <TabsContent value="reimbursements">
-            <ReimbursementTab
-              grantId={params.id as string}
-              expenses={expenses}
-              payments={payments}
-              userRole={userRole}
-            />
-          </TabsContent>
         </Tabs>
 
       {/* Keep all your existing dialogs at the bottom */}
