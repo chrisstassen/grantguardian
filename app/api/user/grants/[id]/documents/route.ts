@@ -117,7 +117,7 @@ export async function GET(
   try {
     const { data: grantExpenses, error: expErr1 } = await supabaseAdmin
       .from('expenses')
-      .select('id, vendor_name, category, invoice_number')
+      .select('id, vendor, category')
       .eq('grant_id', grantId)
 
     debugExpense.expensesError = expErr1?.message ?? null
@@ -151,7 +151,7 @@ export async function GET(
         for (const d of withUrls) {
           const exp = expenseMap.get(d.expense_id)
           const label = exp
-            ? [exp.vendor_name, exp.invoice_number, exp.category].filter(Boolean).join(' · ')
+            ? [exp.vendor, exp.category].filter(Boolean).join(' · ')
             : 'Expense Document'
 
           docs.push({
