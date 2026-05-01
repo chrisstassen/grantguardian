@@ -595,16 +595,16 @@ export default function GrantDetailsPage() {
             ref={tabScrollRef}
             className="overflow-x-auto border-b border-slate-200 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
           >
-            <TabsList className="inline-flex bg-transparent p-0 h-auto gap-0 min-w-max">
+            <TabsList className="inline-flex bg-transparent px-0 py-2 h-auto gap-1 min-w-max">
               <TabsTrigger
                 value="summary"
-                className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 border-transparent -mb-px text-slate-500 hover:text-slate-900 hover:bg-slate-50 data-[state=active]:border-slate-900 data-[state=active]:text-slate-900 transition-colors bg-transparent rounded-none shadow-none"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-2 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-colors bg-transparent shadow-none"
               >
                 Summary
               </TabsTrigger>
               <TabsTrigger
                 value="special-conditions"
-                className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 border-transparent -mb-px text-slate-500 hover:text-slate-900 hover:bg-slate-50 data-[state=active]:border-slate-900 data-[state=active]:text-slate-900 transition-colors bg-transparent rounded-none shadow-none"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-2 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-colors bg-transparent shadow-none"
               >
                 Conditions
                 {specialConditions.length > 0 && (
@@ -613,7 +613,7 @@ export default function GrantDetailsPage() {
               </TabsTrigger>
               <TabsTrigger
                 value="requirements"
-                className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 border-transparent -mb-px text-slate-500 hover:text-slate-900 hover:bg-slate-50 data-[state=active]:border-slate-900 data-[state=active]:text-slate-900 transition-colors bg-transparent rounded-none shadow-none"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-2 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-colors bg-transparent shadow-none"
               >
                 Requirements
                 {overdueRequirements.length > 0 && (
@@ -622,13 +622,13 @@ export default function GrantDetailsPage() {
               </TabsTrigger>
               <TabsTrigger
                 value="budget"
-                className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 border-transparent -mb-px text-slate-500 hover:text-slate-900 hover:bg-slate-50 data-[state=active]:border-slate-900 data-[state=active]:text-slate-900 transition-colors bg-transparent rounded-none shadow-none"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-2 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-colors bg-transparent shadow-none"
               >
                 Budget
               </TabsTrigger>
               <TabsTrigger
                 value="expenses"
-                className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 border-transparent -mb-px text-slate-500 hover:text-slate-900 hover:bg-slate-50 data-[state=active]:border-slate-900 data-[state=active]:text-slate-900 transition-colors bg-transparent rounded-none shadow-none"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-2 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-colors bg-transparent shadow-none"
               >
                 Expenses
                 {expenses.length > 0 && (
@@ -637,7 +637,7 @@ export default function GrantDetailsPage() {
               </TabsTrigger>
               <TabsTrigger
                 value="payments"
-                className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 border-transparent -mb-px text-slate-500 hover:text-slate-900 hover:bg-slate-50 data-[state=active]:border-slate-900 data-[state=active]:text-slate-900 transition-colors bg-transparent rounded-none shadow-none"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-2 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-colors bg-transparent shadow-none"
               >
                 Payments
                 {payments.length > 0 && (
@@ -646,7 +646,7 @@ export default function GrantDetailsPage() {
               </TabsTrigger>
               <TabsTrigger
                 value="requests"
-                className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 border-transparent -mb-px text-slate-500 hover:text-slate-900 hover:bg-slate-50 data-[state=active]:border-slate-900 data-[state=active]:text-slate-900 transition-colors bg-transparent rounded-none shadow-none"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-2 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-colors bg-transparent shadow-none"
               >
                 Requests
                 {requestsCount > 0 && (
@@ -655,13 +655,13 @@ export default function GrantDetailsPage() {
               </TabsTrigger>
               <TabsTrigger
                 value="documents"
-                className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 border-transparent -mb-px text-slate-500 hover:text-slate-900 hover:bg-slate-50 data-[state=active]:border-slate-900 data-[state=active]:text-slate-900 transition-colors bg-transparent rounded-none shadow-none"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-2 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-colors bg-transparent shadow-none"
               >
                 Documents
               </TabsTrigger>
               <TabsTrigger
                 value="notes"
-                className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 border-transparent -mb-px text-slate-500 hover:text-slate-900 hover:bg-slate-50 data-[state=active]:border-slate-900 data-[state=active]:text-slate-900 transition-colors bg-transparent rounded-none shadow-none"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-2 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-colors bg-transparent shadow-none"
               >
                 Notes
                 {totalNotesCount > 0 && (
