@@ -114,94 +114,106 @@ export async function GET(
 
   // ── 3. Expense supporting documents ────────────────────────────────────────
   // expense_documents links to expenses (which has grant_id), not directly to grants.
-  // Step 1: get all expense IDs for this grant.
-  const { data: grantExpenses } = await supabaseAdmin
-    .from('expenses')
-    .select('id, vendor_name, category, invoice_number')
-    .eq('grant_id', grantId)
+  try {
+    const { data: grantExpenses } = await supabaseAdmin
+      .from('expenses')
+      .select('id, vendor_name, category, invoice_number')
+      .eq('grant_id', grantId)
 
-  if (grantExpenses && grantExpenses.length > 0) {
-    const expenseIds = grantExpenses.map((e) => e.id)
-    const expenseMap = new Map(grantExpenses.map((e) => [e.id, e]))
+    if (grantExpenses && grantExpenses.length > 0) {
+      const expenseIds = grantExpenses.map((e) => e.id)
+      const expenseMap = new Map(grantExpenses.map((e) => [e.id, e]))
 
-    const { data: expenseDocs } = await supabaseAdmin
-      .from('expense_documents')
-      .select('id, file_name, file_path, file_type, file_size, created_at, expense_id')
-      .in('expense_id', expenseIds)
-      .order('created_at', { ascending: false })
+      const { data: expenseDocs } = await supabaseAdmin
+        .from('expense_documents')
+        .select('id, file_name, file_path, file_type, file_size, created_at, expense_id')
+        .in('expense_id', expenseIds)
+        .order('created_at', { ascending: false })
 
-    if (expenseDocs && expenseDocs.length > 0) {
-      const paths = expenseDocs.map((d) => d.file_path)
-      const { data: signedList } = await supabaseAdmin.storage
-        .from('expense-documents')
-        .createSignedUrls(paths, 3600)
+      if (expenseDocs && expenseDocs.length > 0) {
+        // Use individual signed URLs (same pattern as attachments/route.ts) to avoid
+        // any batch-API path-normalisation mismatches with the expense-documents bucket.
+        const withUrls = await Promise.all(
+          expenseDocs.map(async (d) => {
+            const { data } = await supabaseAdmin.storage
+              .from('expense-documents')
+              .createSignedUrl(d.file_path, 3600)
+            return { ...d, signedUrl: data?.signedUrl ?? null }
+          })
+        )
 
-      const urlMap = new Map((signedList || []).map((s) => [s.path, s.signedUrl]))
+        for (const d of withUrls) {
+          const exp = expenseMap.get(d.expense_id)
+          const label = exp
+            ? [exp.vendor_name, exp.invoice_number, exp.category].filter(Boolean).join(' · ')
+            : 'Expense Document'
 
-      for (const d of expenseDocs) {
-        const exp = expenseMap.get(d.expense_id)
-        const label = exp
-          ? [exp.vendor_name, exp.invoice_number, exp.category].filter(Boolean).join(' · ')
-          : 'Expense Document'
-
-        docs.push({
-          id: d.id,
-          file_name: d.file_name,
-          file_type: d.file_type || 'application/octet-stream',
-          file_size: d.file_size,
-          source: 'expense',
-          source_label: label || 'Expense Document',
-          download_url: urlMap.get(d.file_path) ?? null,
-          created_at: d.created_at,
-          can_delete: false,
-        })
+          docs.push({
+            id: d.id,
+            file_name: d.file_name,
+            file_type: d.file_type || 'application/octet-stream',
+            file_size: d.file_size,
+            source: 'expense',
+            source_label: label || 'Expense Document',
+            download_url: d.signedUrl,
+            created_at: d.created_at,
+            can_delete: false,
+          })
+        }
       }
     }
+  } catch (err) {
+    console.error('[documents] expense docs section failed:', err)
   }
 
   // ── 4. Request attachments ──────────────────────────────────────────────────
   // grant_request_attachments links to reimbursement_requests (which has grant_id).
-  // Step 1: get all request IDs for this grant.
-  const { data: grantRequests } = await supabaseAdmin
-    .from('reimbursement_requests')
-    .select('id, title, request_type')
-    .eq('grant_id', grantId)
+  try {
+    const { data: grantRequests } = await supabaseAdmin
+      .from('reimbursement_requests')
+      .select('id, title, request_type')
+      .eq('grant_id', grantId)
 
-  if (grantRequests && grantRequests.length > 0) {
-    const requestIds = grantRequests.map((r) => r.id)
-    const requestMap = new Map(grantRequests.map((r) => [r.id, r]))
+    if (grantRequests && grantRequests.length > 0) {
+      const requestIds = grantRequests.map((r) => r.id)
+      const requestMap = new Map(grantRequests.map((r) => [r.id, r]))
 
-    const { data: requestAttachments } = await supabaseAdmin
-      .from('grant_request_attachments')
-      .select('id, file_name, file_path, file_type, file_size, created_at, request_id')
-      .in('request_id', requestIds)
-      .order('created_at', { ascending: false })
+      const { data: requestAttachments } = await supabaseAdmin
+        .from('grant_request_attachments')
+        .select('id, file_name, file_path, file_type, file_size, created_at, request_id')
+        .in('request_id', requestIds)
+        .order('created_at', { ascending: false })
 
-    if (requestAttachments && requestAttachments.length > 0) {
-      const paths = requestAttachments.map((d) => d.file_path)
-      const { data: signedList } = await supabaseAdmin.storage
-        .from('grant-request-attachments')
-        .createSignedUrls(paths, 3600)
+      if (requestAttachments && requestAttachments.length > 0) {
+        const withUrls = await Promise.all(
+          requestAttachments.map(async (d) => {
+            const { data } = await supabaseAdmin.storage
+              .from('grant-request-attachments')
+              .createSignedUrl(d.file_path, 3600)
+            return { ...d, signedUrl: data?.signedUrl ?? null }
+          })
+        )
 
-      const urlMap = new Map((signedList || []).map((s) => [s.path, s.signedUrl]))
+        for (const d of withUrls) {
+          const req = requestMap.get(d.request_id)
+          const label = req ? (req.title || req.request_type || 'Request') : 'Request Attachment'
 
-      for (const d of requestAttachments) {
-        const req = requestMap.get(d.request_id)
-        const label = req ? (req.title || req.request_type || 'Request') : 'Request Attachment'
-
-        docs.push({
-          id: d.id,
-          file_name: d.file_name,
-          file_type: d.file_type || 'application/octet-stream',
-          file_size: d.file_size,
-          source: 'request',
-          source_label: label,
-          download_url: urlMap.get(d.file_path) ?? null,
-          created_at: d.created_at,
-          can_delete: false,
-        })
+          docs.push({
+            id: d.id,
+            file_name: d.file_name,
+            file_type: d.file_type || 'application/octet-stream',
+            file_size: d.file_size,
+            source: 'request',
+            source_label: label,
+            download_url: d.signedUrl,
+            created_at: d.created_at,
+            can_delete: false,
+          })
+        }
       }
     }
+  } catch (err) {
+    console.error('[documents] request attachments section failed:', err)
   }
 
   // Award letter always first; everything else newest-first
