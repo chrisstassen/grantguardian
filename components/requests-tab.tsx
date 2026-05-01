@@ -48,6 +48,7 @@ interface GrantRequest {
   expense_ids: string[]
   expense_count: number
   total_amount: number
+  attachment_count: number
   expenses?: LinkedExpense[]
   payment?: any
 }
@@ -843,6 +844,7 @@ export function RequestsTab({ grantId, expenses, payments, userRole, onCountChan
         expense_ids: (rr.expenses || []).map((e: any) => e.id),
         expense_count: (rr.expenses || []).length,
         total_amount: (rr.expenses || []).reduce((s: number, e: any) => s + parseFloat(e.amount || 0), 0),
+        attachment_count: rr.attachment_count ?? r.attachment_count ?? 0,
       } : r))
       setDetailsCache(prev => ({ ...prev, [requestId]: { expenses: rr.expenses || [], payment: rr.payment } }))
     }
@@ -1115,6 +1117,11 @@ export function RequestsTab({ grantId, expenses, payments, userRole, onCountChan
                     <Badge className={`text-xs border ${TYPE_COLORS[req.request_type] || ''}`}>
                       {typeLabel(req.request_type)}
                     </Badge>
+                    {req.attachment_count > 0 && (
+                      <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded flex items-center gap-1">
+                        📎 {req.attachment_count} attachment{req.attachment_count === 1 ? '' : 's'}
+                      </span>
+                    )}
                   </div>
                   <RequestSecondaryInfo req={req} />
                 </div>

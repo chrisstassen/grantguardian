@@ -47,7 +47,8 @@ export async function GET(
       ),
       payment:payments_received (
         id, amount, received_date, funding_source
-      )
+      ),
+      grant_request_attachments ( count )
     `)
     .eq('grant_id', grantId)
     .order('created_at', { ascending: false })
@@ -59,12 +60,15 @@ export async function GET(
     const totalAmount = rreList.reduce(
       (sum: number, rre: any) => sum + (parseFloat(rre.expenses?.amount) || 0), 0
     )
+    const attachmentCount: number = r.grant_request_attachments?.[0]?.count ?? 0
     return {
       ...r,
       expense_ids: rreList.map((rre: any) => rre.expense_id),
       expense_count: rreList.length,
       total_amount: totalAmount,
+      attachment_count: attachmentCount,
       reimbursement_request_expenses: undefined, // strip raw join
+      grant_request_attachments: undefined,       // strip raw join
     }
   })
 
