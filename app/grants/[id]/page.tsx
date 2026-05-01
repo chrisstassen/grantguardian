@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
@@ -28,7 +28,7 @@ import { AddPaymentDialog } from '@/components/add-payment-dialog'
 import { AddNoteDialog } from '@/components/add-note-dialog'
 import { AddReplyDialog } from '@/components/add-reply-dialog'
 import { PaymentDetailDialog } from '@/components/payment-detail-dialog'
-import { Pencil, Trash2, CheckCircle2, Clock, AlertCircle, Sparkles } from 'lucide-react'
+import { Pencil, Trash2, CheckCircle2, Clock, AlertCircle, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useOrganization } from '@/contexts/organization-context'
 import { BudgetTab } from '@/components/budget-tab'
 import { GenerateReportDialog } from '@/components/generate-report-dialog'
@@ -86,6 +86,34 @@ export default function GrantDetailsPage() {
   const [requestsCount, setRequestsCount] = useState(0)
   const [requestLinkedExpenseIds, setRequestLinkedExpenseIds] = useState<Set<string>>(new Set())
   const [requestLinkedPaymentIds, setRequestLinkedPaymentIds] = useState<Set<string>>(new Set())
+
+  // ── Tab bar scroll state ──────────────────────────────────────────────────
+  const tabScrollRef = useRef<HTMLDivElement>(null)
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(false)
+
+  const checkTabScroll = useCallback(() => {
+    const el = tabScrollRef.current
+    if (!el) return
+    setCanScrollLeft(el.scrollLeft > 4)
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4)
+  }, [])
+
+  useEffect(() => {
+    const el = tabScrollRef.current
+    if (!el) return
+    checkTabScroll()
+    el.addEventListener('scroll', checkTabScroll, { passive: true })
+    const ro = new ResizeObserver(checkTabScroll)
+    ro.observe(el)
+    return () => {
+      el.removeEventListener('scroll', checkTabScroll)
+      ro.disconnect()
+    }
+  }, [checkTabScroll])
+
+  const scrollTabsLeft  = () => tabScrollRef.current?.scrollBy({ left: -180, behavior: 'smooth' })
+  const scrollTabsRight = () => tabScrollRef.current?.scrollBy({ left: 180, behavior: 'smooth' })
 
   const defaultTab = searchParams?.get('tab') || 'summary'
 
@@ -546,81 +574,117 @@ export default function GrantDetailsPage() {
       showSettings={isAdmin}
     >
       <Tabs defaultValue={defaultTab} className="w-full">
-        <div className="mb-6 overflow-x-auto overflow-y-hidden border-b border-slate-300 pb-3">
-            <TabsList className="inline-flex w-full min-w-max lg:grid lg:grid-cols-9 lg:w-full h-auto p-0 bg-transparent gap-0">
-              <TabsTrigger 
-                value="summary" 
-                className="flex-1 whitespace-nowrap border border-slate-300 border-r-0 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
+        {/* ── Tab bar ── */}
+        <div className="relative mb-6">
+          {/* Left scroll button + fade */}
+          {canScrollLeft && (
+            <div className="absolute left-0 top-0 bottom-0 z-10 flex items-center pointer-events-none">
+              <div className="absolute inset-y-0 left-0 w-14 bg-gradient-to-r from-slate-50 via-slate-50/80 to-transparent" />
+              <button
+                onClick={scrollTabsLeft}
+                className="pointer-events-auto relative z-20 ml-1 h-7 w-7 rounded-full bg-white shadow border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors flex-shrink-0"
+                aria-label="Scroll tabs left"
+              >
+                <ChevronLeft className="h-4 w-4 text-slate-500" />
+              </button>
+            </div>
+          )}
+
+          {/* Scrollable tab list — native scrollbar hidden */}
+          <div
+            ref={tabScrollRef}
+            className="overflow-x-auto border-b border-slate-200 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+          >
+            <TabsList className="inline-flex bg-transparent p-0 h-auto gap-0 min-w-max">
+              <TabsTrigger
+                value="summary"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 border-transparent -mb-px text-slate-500 hover:text-slate-900 hover:bg-slate-50 data-[state=active]:border-slate-900 data-[state=active]:text-slate-900 transition-colors bg-transparent rounded-none shadow-none"
               >
                 Summary
               </TabsTrigger>
-              <TabsTrigger 
-                value="special-conditions" 
-                className="flex-1 whitespace-nowrap border border-slate-300 border-r-0 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
+              <TabsTrigger
+                value="special-conditions"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 border-transparent -mb-px text-slate-500 hover:text-slate-900 hover:bg-slate-50 data-[state=active]:border-slate-900 data-[state=active]:text-slate-900 transition-colors bg-transparent rounded-none shadow-none"
               >
-                <span className="hidden xl:inline">Special Conditions</span>
-                <span className="xl:hidden">Conditions</span>
+                Conditions
                 {specialConditions.length > 0 && (
-                  <Badge variant="destructive" className="ml-1 xl:ml-2 text-xs">{specialConditions.length}</Badge>
+                  <Badge variant="destructive" className="text-xs px-1.5 py-0">{specialConditions.length}</Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger 
-                value="requirements" 
-                className="flex-1 whitespace-nowrap border border-slate-300 border-r-0 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
+              <TabsTrigger
+                value="requirements"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 border-transparent -mb-px text-slate-500 hover:text-slate-900 hover:bg-slate-50 data-[state=active]:border-slate-900 data-[state=active]:text-slate-900 transition-colors bg-transparent rounded-none shadow-none"
               >
-                <span className="hidden xl:inline">Requirements</span>
-                <span className="xl:hidden">Req's</span>
+                Requirements
                 {overdueRequirements.length > 0 && (
-                  <Badge variant="destructive" className="ml-1 xl:ml-2 text-xs">{overdueRequirements.length}</Badge>
+                  <Badge variant="destructive" className="text-xs px-1.5 py-0">{overdueRequirements.length}</Badge>
                 )}
               </TabsTrigger>
               <TabsTrigger
                 value="budget"
-                className="flex-1 whitespace-nowrap border border-slate-300 border-r-0 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 border-transparent -mb-px text-slate-500 hover:text-slate-900 hover:bg-slate-50 data-[state=active]:border-slate-900 data-[state=active]:text-slate-900 transition-colors bg-transparent rounded-none shadow-none"
               >
                 Budget
               </TabsTrigger>
               <TabsTrigger
                 value="expenses"
-                className="flex-1 whitespace-nowrap border border-slate-300 border-r-0 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 border-transparent -mb-px text-slate-500 hover:text-slate-900 hover:bg-slate-50 data-[state=active]:border-slate-900 data-[state=active]:text-slate-900 transition-colors bg-transparent rounded-none shadow-none"
               >
                 Expenses
-                <Badge variant="secondary" className="ml-1 xl:ml-2 text-xs">{expenses.length}</Badge>
+                {expenses.length > 0 && (
+                  <Badge variant="secondary" className="text-xs px-1.5 py-0">{expenses.length}</Badge>
+                )}
               </TabsTrigger>
               <TabsTrigger
                 value="payments"
-                className="flex-1 whitespace-nowrap border border-slate-300 border-r-0 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 border-transparent -mb-px text-slate-500 hover:text-slate-900 hover:bg-slate-50 data-[state=active]:border-slate-900 data-[state=active]:text-slate-900 transition-colors bg-transparent rounded-none shadow-none"
               >
                 Payments
-                <Badge variant="secondary" className="ml-1 xl:ml-2 text-xs">{payments.length}</Badge>
+                {payments.length > 0 && (
+                  <Badge variant="secondary" className="text-xs px-1.5 py-0">{payments.length}</Badge>
+                )}
               </TabsTrigger>
               <TabsTrigger
                 value="requests"
-                className="flex-1 whitespace-nowrap border border-slate-300 border-r-0 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 border-transparent -mb-px text-slate-500 hover:text-slate-900 hover:bg-slate-50 data-[state=active]:border-slate-900 data-[state=active]:text-slate-900 transition-colors bg-transparent rounded-none shadow-none"
               >
                 Requests
                 {requestsCount > 0 && (
-                  <Badge variant="secondary" className="ml-1 xl:ml-2 text-xs">{requestsCount}</Badge>
+                  <Badge variant="secondary" className="text-xs px-1.5 py-0">{requestsCount}</Badge>
                 )}
               </TabsTrigger>
               <TabsTrigger
                 value="documents"
-                className="flex-1 whitespace-nowrap border border-slate-300 border-r-0 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 border-transparent -mb-px text-slate-500 hover:text-slate-900 hover:bg-slate-50 data-[state=active]:border-slate-900 data-[state=active]:text-slate-900 transition-colors bg-transparent rounded-none shadow-none"
               >
-                <span className="hidden xl:inline">Documents</span>
-                <span className="xl:hidden">Docs</span>
+                Documents
               </TabsTrigger>
               <TabsTrigger
                 value="notes"
-                className="flex-1 whitespace-nowrap border border-slate-300 px-2 py-3 rounded-none text-xs xl:text-sm font-medium transition-colors data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-slate-900 hover:text-white"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 border-transparent -mb-px text-slate-500 hover:text-slate-900 hover:bg-slate-50 data-[state=active]:border-slate-900 data-[state=active]:text-slate-900 transition-colors bg-transparent rounded-none shadow-none"
               >
                 Notes
                 {totalNotesCount > 0 && (
-                  <Badge variant="secondary" className="ml-1 xl:ml-2 text-xs">{totalNotesCount}</Badge>
+                  <Badge variant="secondary" className="text-xs px-1.5 py-0">{totalNotesCount}</Badge>
                 )}
               </TabsTrigger>
             </TabsList>
           </div>
+
+          {/* Right scroll button + fade */}
+          {canScrollRight && (
+            <div className="absolute right-0 top-0 bottom-0 z-10 flex items-center pointer-events-none">
+              <div className="absolute inset-y-0 right-0 w-14 bg-gradient-to-l from-slate-50 via-slate-50/80 to-transparent" />
+              <button
+                onClick={scrollTabsRight}
+                className="pointer-events-auto relative z-20 mr-1 h-7 w-7 rounded-full bg-white shadow border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors flex-shrink-0"
+                aria-label="Scroll tabs right"
+              >
+                <ChevronRight className="h-4 w-4 text-slate-500" />
+              </button>
+            </div>
+          )}
+        </div>
 
           {/* Summary Tab */}
           <TabsContent value="summary" className="space-y-6">
