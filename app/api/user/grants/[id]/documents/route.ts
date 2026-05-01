@@ -113,29 +113,21 @@ export async function GET(
   }
 
   // ── 3. Expense supporting documents ────────────────────────────────────────
-  const debugExpense: Record<string, unknown> = {}
   try {
-    const { data: grantExpenses, error: expErr1 } = await supabaseAdmin
+    const { data: grantExpenses } = await supabaseAdmin
       .from('expenses')
       .select('id, vendor, category')
       .eq('grant_id', grantId)
-
-    debugExpense.expensesError = expErr1?.message ?? null
-    debugExpense.expensesCount = grantExpenses?.length ?? 0
 
     if (grantExpenses && grantExpenses.length > 0) {
       const expenseIds = grantExpenses.map((e) => e.id)
       const expenseMap = new Map(grantExpenses.map((e) => [e.id, e]))
 
-      const { data: expenseDocs, error: expErr2 } = await supabaseAdmin
+      const { data: expenseDocs } = await supabaseAdmin
         .from('expense_documents')
         .select('*')
         .in('expense_id', expenseIds)
         .order('created_at', { ascending: false })
-
-      debugExpense.expenseDocsError = expErr2?.message ?? null
-      debugExpense.expenseDocsCount = expenseDocs?.length ?? 0
-      if (expenseDocs?.[0]) debugExpense.expenseDocSample = Object.keys(expenseDocs[0])
 
       if (expenseDocs && expenseDocs.length > 0) {
         const withUrls = await Promise.all(
@@ -169,8 +161,7 @@ export async function GET(
       }
     }
   } catch (err) {
-    console.error('[documents] expense docs section threw:', err)
-    debugExpense.threw = String(err)
+    console.error('[documents] expense docs section failed:', err)
   }
 
   // ── 4. Request attachments ──────────────────────────────────────────────────
@@ -229,10 +220,7 @@ export async function GET(
     .filter((d) => d.source !== 'award_letter')
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
-  return NextResponse.json({
-    documents: [...awardLetter, ...rest],
-    _debug: { expense: debugExpense },
-  })
+  return NextResponse.json({ documents: [...awardLetter, ...rest] })
 }
 
 // ── POST: upload a general document ───────────────────────────────────────────
