@@ -31,6 +31,7 @@ import {
   Receipt,
   ClipboardList,
   FolderOpen,
+  ArchiveIcon,
 } from 'lucide-react'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -117,6 +118,7 @@ export function DocumentsTab({ grantId, userRole }: DocumentsTabProps) {
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [downloadingAll, setDownloadingAll] = useState(false)
   const [filterType, setFilterType] = useState<FilterType>('all')
   const [search, setSearch] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -215,6 +217,36 @@ export function DocumentsTab({ grantId, userRole }: DocumentsTabProps) {
     document.body.removeChild(a)
   }
 
+  async function handleDownloadAll() {
+    const token = await getToken()
+    if (!token) return
+    setDownloadingAll(true)
+    try {
+      const res = await fetch(`${baseUrl}/download-all`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        alert('Download failed: ' + (err.error || res.statusText))
+        return
+      }
+      const blob = await res.blob()
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      // derive zip name from Content-Disposition if present, else fallback
+      const cd   = res.headers.get('Content-Disposition') || ''
+      const match = cd.match(/filename="([^"]+)"/)
+      a.href     = url
+      a.download = match?.[1] || 'grant-documents.zip'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } finally {
+      setDownloadingAll(false)
+    }
+  }
+
   // Determine which filter pills to show (only sources that exist in the list)
   const availableSources = new Set(documents.map((d) => d.source))
 
@@ -241,30 +273,46 @@ export function DocumentsTab({ grantId, userRole }: DocumentsTabProps) {
               All documents associated with this grant — {documents.length} total
             </CardDescription>
           </div>
-          {canEdit && (
-            <div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                className="hidden"
-                onChange={handleUpload}
-              />
-              <Button
-                size="sm"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="flex items-center gap-1.5"
-              >
-                {uploading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Upload className="h-4 w-4" />
-                )}
-                {uploading ? 'Uploading…' : 'Upload Document'}
-              </Button>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleDownloadAll}
+              disabled={downloadingAll || documents.length === 0}
+              className="flex items-center gap-1.5"
+            >
+              {downloadingAll ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ArchiveIcon className="h-4 w-4" />
+              )}
+              {downloadingAll ? 'Zipping…' : 'Download All'}
+            </Button>
+            {canEdit && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={handleUpload}
+                />
+                <Button
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="flex items-center gap-1.5"
+                >
+                  {uploading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4" />
+                  )}
+                  {uploading ? 'Uploading…' : 'Upload Document'}
+                </Button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Filter pills + Search */}
