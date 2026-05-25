@@ -6,7 +6,7 @@ import { useOrganization } from '@/contexts/organization-context'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { AlertCircle, CheckCircle2, AlertTriangle, RefreshCw, ShieldCheck, ChevronRight } from 'lucide-react'
+import { AlertCircle, CheckCircle2, AlertTriangle, RefreshCw, ShieldCheck, ChevronRight, ChevronDown } from 'lucide-react'
 
 interface GrantHealth {
   id: string
@@ -31,6 +31,7 @@ export function ComplianceHealthPanel() {
   const { activeOrg } = useOrganization()
   const [summary, setSummary] = useState<ScanSummary | null>(null)
   const [scanning, setScanning] = useState(false)
+  const [expanded, setExpanded] = useState(false)
 
   const runScan = useCallback(async () => {
     if (!activeOrg) return
@@ -120,29 +121,44 @@ export function ComplianceHealthPanel() {
 
         {summary && (
           <div className="space-y-4">
-            {/* Overall score */}
-            <div className="flex items-center gap-3">
-              {getStatusIcon(summary.overallStatus, 'h-7 w-7')}
-              <div>
-                <p className={`text-2xl font-bold ${getStatusColor(summary.overallStatus)}`}>
-                  {summary.overallScore}<span className="text-base font-normal text-slate-400">/100</span>
-                </p>
-                <p className="text-xs text-slate-500">
-                  {summary.totalIssues === 0
-                    ? 'No issues detected'
-                    : `${summary.totalIssues} issue${summary.totalIssues === 1 ? '' : 's'} found${summary.criticalIssues > 0 ? ` — ${summary.criticalIssues} critical` : ''}`
-                  }
-                </p>
+            {/* Overall score — centred, clicking toggles expanded */}
+            <div className="flex flex-col items-center gap-3 py-2">
+              <div className="flex items-center gap-3">
+                {getStatusIcon(summary.overallStatus, 'h-9 w-9')}
+                <div className="text-center">
+                  <p className={`text-5xl font-bold ${getStatusColor(summary.overallStatus)}`}>
+                    {summary.overallScore}<span className="text-xl font-normal text-slate-400">/100</span>
+                  </p>
+                  <p className="text-sm text-slate-500 mt-1">
+                    {summary.totalIssues === 0
+                      ? 'No issues detected'
+                      : `${summary.totalIssues} issue${summary.totalIssues === 1 ? '' : 's'} found${summary.criticalIssues > 0 ? ` — ${summary.criticalIssues} critical` : ''}`
+                    }
+                  </p>
+                </div>
               </div>
+
+              {summary.grants.length > 0 && (
+                <button
+                  onClick={() => setExpanded(prev => !prev)}
+                  aria-expanded={expanded}
+                  className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  {expanded ? 'Collapse' : 'Expand'}
+                  <ChevronDown
+                    className={`h-4 w-4 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
+                  />
+                </button>
+              )}
             </div>
 
-            {/* Per-grant rows */}
-            {summary.grants.length > 0 && (
+            {/* Per-grant rows — only shown when expanded */}
+            {expanded && summary.grants.length > 0 && (
               <div className="space-y-1.5 border-t border-slate-100 pt-3">
                 {summary.grants.map(grant => (
                   <a
                     key={grant.id}
-                    href={`/compliance`}
+                    href="/compliance"
                     className="flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-slate-50 group transition-colors"
                   >
                     <div className="flex items-center gap-2 min-w-0">

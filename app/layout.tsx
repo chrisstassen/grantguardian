@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { OrganizationProvider } from '@/contexts/organization-context';
 import { HelpChatWidget } from '@/components/help-chat-widget';
+import { WelcomeTourModal } from '@/components/welcome-tour-modal';
 
 import { Inter } from 'next/font/google'
 
@@ -33,6 +34,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <OrganizationProvider>
           {children}
+          <WelcomeTourModal />
           <HelpChatWidget />
         </OrganizationProvider>
       </body>

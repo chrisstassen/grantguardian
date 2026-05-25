@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { NotificationsDropdown } from '@/components/notifications-dropdown'
 import { ArrowLeft, ShieldCheck, LayoutDashboard, CalendarDays } from 'lucide-react'
 import { useOrganization } from '@/contexts/organization-context'
+import { TakeTourButton } from '@/components/welcome-tour-modal'
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -39,9 +40,18 @@ export function AppLayout({
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-12 py-4 flex justify-between items-center">
           <div className="flex items-center gap-6">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900">GrantGuardian</h1>
-              <p className="text-sm text-slate-600">{activeOrg?.name}</p>
+            <div className="flex items-center gap-3">
+              {activeOrg?.logo_url && (
+                <img
+                  src={activeOrg.logo_url}
+                  alt={`${activeOrg.name} logo`}
+                  className="h-10 w-10 rounded-md object-contain bg-slate-50 border border-slate-200 p-0.5"
+                />
+              )}
+              <div>
+                <h1 className="text-2xl font-bold text-slate-900">GrantGuardian</h1>
+                <p className="text-sm text-slate-600">{activeOrg?.name}</p>
+              </div>
             </div>
             <nav className="hidden md:flex items-center gap-1">
               <a
@@ -68,6 +78,7 @@ export function AppLayout({
                 <CalendarDays className="h-4 w-4" />
                 Calendar
               </a>
+              <TakeTourButton />
             </nav>
           </div>
           <div className="flex items-center gap-2">

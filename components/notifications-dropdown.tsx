@@ -31,45 +31,48 @@ export function NotificationsDropdown() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadNotifications()
-    
-    // Set up real-time subscription
-    const channel = supabase
-      .channel('notifications')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${getUserId()}`
-        },
-        (payload) => {
-          setNotifications(prev => [payload.new as Notification, ...prev])
-          setUnreadCount(prev => prev + 1)
-        }
-      )
-      .subscribe()
+    let channel: ReturnType<typeof supabase.channel> | null = null
+
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      await loadNotifications(user.id)
+
+      // Real-time subscription — filter to this user's notifications only
+      channel = supabase
+        .channel(`notifications:${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            setNotifications(prev => [payload.new as Notification, ...prev])
+            setUnreadCount(prev => prev + 1)
+          }
+        )
+        .subscribe()
+    }
+
+    init()
 
     return () => {
-      supabase.removeChannel(channel)
+      if (channel) supabase.removeChannel(channel)
     }
   }, [])
 
-  const getUserId = () => {
-    // This is a helper to get current user ID synchronously
-    // We'll need to handle this properly
-    return null
-  }
-
-  const loadNotifications = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+  const loadNotifications = async (userId?: string) => {
+    const uid = userId ?? (await supabase.auth.getUser()).data.user?.id
+    if (!uid) return
 
     const { data, error } = await supabase
       .from('notifications')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', uid)
       .order('created_at', { ascending: false })
       .limit(20)
 
@@ -79,7 +82,7 @@ export function NotificationsDropdown() {
       setNotifications(data || [])
       setUnreadCount(data?.filter(n => !n.is_read).length || 0)
     }
-    
+
     setLoading(false)
   }
 
@@ -111,10 +114,7 @@ export function NotificationsDropdown() {
 
   const handleNotificationClick = async (notification: Notification) => {
     await markAsRead(notification.id)
-    
-    if (notification.link) {
-      router.push(notification.link)
-    }
+    if (notification.link) router.push(notification.link)
   }
 
   return (

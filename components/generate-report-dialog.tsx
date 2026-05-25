@@ -47,7 +47,7 @@ const DELIVERABLE_STATUS_LABELS: Record<string, string> = {
 }
 
 function buildHtmlReport(data: any): string {
-  const { grant, organization, generatedAt, financials, expensesByCategory, payments, requirements, deliverables, fundingSources } = data
+  const { grant, organization, organizationLogoDataUrl, generatedAt, financials, expensesByCategory, payments, requirements, deliverables, fundingSources } = data
 
   const expByCatRows = expensesByCategory.map((r: any) => `
     <tr>
@@ -111,6 +111,9 @@ function buildHtmlReport(data: any): string {
     h1 { font-size: 26px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
     h2 { font-size: 17px; font-weight: 700; color: #0f172a; margin: 32px 0 12px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; }
     h3 { font-size: 14px; font-weight: 600; color: #334155; margin: 20px 0 8px; }
+    .org-header { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #e2e8f0; }
+    .org-logo { width: 56px; height: 56px; object-fit: contain; border-radius: 8px; border: 1px solid #e2e8f0; padding: 4px; background: #f8fafc; flex-shrink: 0; }
+    .org-name { font-size: 14px; color: #64748b; font-family: sans-serif; font-weight: 600; }
     .subtitle { font-size: 15px; color: #64748b; margin-bottom: 4px; }
     .meta { font-size: 12px; color: #94a3b8; margin-top: 8px; }
     .divider { border: none; border-top: 1px solid #e2e8f0; margin: 24px 0; }
@@ -138,6 +141,11 @@ function buildHtmlReport(data: any): string {
   </style>
 </head>
 <body>
+  ${(organization || organizationLogoDataUrl) ? `
+  <div class="org-header">
+    ${organizationLogoDataUrl ? `<img src="${organizationLogoDataUrl}" alt="${organization || 'Organization'} logo" class="org-logo" />` : ''}
+    ${organization ? `<span class="org-name">${organization}</span>` : ''}
+  </div>` : ''}
   <h1>${grant.grant_name}</h1>
   <p class="subtitle">${grant.funding_agency}${grant.program_type ? ' · ' + grant.program_type : ''}</p>
   ${grant.award_number ? `<p class="subtitle">Award #${grant.award_number}</p>` : ''}
@@ -298,19 +306,38 @@ export function GenerateReportDialog({ grantId, grantName }: GenerateReportDialo
     if (val && !reportData) fetchReport()
   }
 
-  const handleDownload = () => {
+  const [downloading, setDownloading] = useState(false)
+
+  const handleDownload = async () => {
     if (!reportData) return
-    const html = buildHtmlReport(reportData)
-    const blob = new Blob([html], { type: 'text/html' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    const safeName = grantName.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 50)
-    a.download = `${safeName}_Report.html`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    setDownloading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { setError('Not authenticated'); return }
+
+      const res = await fetch(`/api/user/grants/${grantId}/report/pdf`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setError(body.error || 'Failed to generate PDF')
+        return
+      }
+
+      const blob = await res.blob()
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      const safeName = grantName.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 50)
+      a.href     = url
+      a.download = `${safeName}_Report.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } finally {
+      setDownloading(false)
+    }
   }
 
   const { financials, requirements, expensesByCategory, payments, deliverables, fundingSources } = reportData || {}
@@ -325,6 +352,20 @@ export function GenerateReportDialog({ grantId, grantName }: GenerateReportDialo
       </DialogTrigger>
       <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
+          {reportData && (reportData.organizationLogoDataUrl || reportData.organization) && (
+            <div className="flex items-center gap-3 mb-3">
+              {reportData.organizationLogoDataUrl && (
+                <img
+                  src={reportData.organizationLogoDataUrl}
+                  alt={reportData.organization || 'Organization'}
+                  className="h-10 w-10 rounded-lg object-contain border border-slate-200 bg-slate-50 p-0.5 flex-shrink-0"
+                />
+              )}
+              {reportData.organization && (
+                <span className="text-sm font-semibold text-slate-600">{reportData.organization}</span>
+              )}
+            </div>
+          )}
           <DialogTitle>Grant Report</DialogTitle>
           <DialogDescription>
             Structured summary report for {grantName}
@@ -640,9 +681,13 @@ export function GenerateReportDialog({ grantId, grantName }: GenerateReportDialo
 
             {/* Download Button */}
             <div className="flex justify-end pt-2 border-t">
-              <Button onClick={handleDownload} className="flex items-center gap-2">
-                <Download className="h-4 w-4" />
-                Download Report (HTML)
+              <Button onClick={handleDownload} disabled={downloading} className="flex items-center gap-2">
+                {downloading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                {downloading ? 'Generating PDF…' : 'Download Report (PDF)'}
               </Button>
             </div>
           </div>

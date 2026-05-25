@@ -50,7 +50,7 @@ export async function GET(
       .order('due_date', { ascending: true }),
     supabaseAdmin
       .from('organizations')
-      .select('name')
+      .select('name, logo_path, logo_name')
       .eq('id', grant.organization_id)
       .single(),
     supabaseAdmin
@@ -70,6 +70,26 @@ export async function GET(
   const deliverables = deliverablesResult.data || []
   const fundingSources = fundingSourcesResult.data || []
   const orgName = orgResult.data?.name || ''
+
+  // Fetch logo as base64 data URL (for embedding in HTML/PDF exports)
+  let logoDataUrl: string | null = null
+  const logoPath = orgResult.data?.logo_path
+  if (logoPath) {
+    try {
+      const { data: logoBlob } = await supabaseAdmin.storage
+        .from('organization-logos')
+        .download(logoPath)
+      if (logoBlob) {
+        const logoBuffer = Buffer.from(await logoBlob.arrayBuffer())
+        const ext = logoPath.split('.').pop()?.toLowerCase() || 'png'
+        const mimeType = ext === 'svg' ? 'image/svg+xml'
+          : ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg'
+          : ext === 'webp' ? 'image/webp'
+          : 'image/png'
+        logoDataUrl = `data:${mimeType};base64,${logoBuffer.toString('base64')}`
+      }
+    } catch { /* ignore, logo is optional */ }
+  }
 
   // Compute overdue status server-side
   const today = new Date()
@@ -110,6 +130,7 @@ export async function GET(
       total_project_cost: totalProjectCost,
     },
     organization: orgName,
+    organizationLogoDataUrl: logoDataUrl,
     generatedAt: new Date().toISOString(),
     financials: {
       awardAmount,

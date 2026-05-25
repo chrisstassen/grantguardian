@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Pencil, Trash2, Plus, Check, X } from 'lucide-react'
+import { Pencil, Trash2, Plus, Check, X, Download } from 'lucide-react'
+import { exportToCsv } from '@/lib/export-csv'
 
 interface Deliverable {
   id: string
@@ -47,9 +48,11 @@ const emptyForm = {
 interface Props {
   grantId: string
   userRole: string
+  grantName?: string
+  awardNumber?: string | null
 }
 
-export function DeliverablesSection({ grantId, userRole }: Props) {
+export function DeliverablesSection({ grantId, userRole, grantName = '', awardNumber = '' }: Props) {
   const [deliverables, setDeliverables] = useState<Deliverable[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -163,12 +166,29 @@ export function DeliverablesSection({ grantId, userRole }: Props) {
               </span>
             )}
           </div>
-          {canEdit && !showAddForm && (
-            <Button variant="outline" size="sm" onClick={() => setShowAddForm(true)} className="flex items-center gap-1.5">
-              <Plus className="h-3.5 w-3.5" />
-              Add Deliverable
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {deliverables.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1.5"
+                onClick={() => exportToCsv(
+                  'deliverables',
+                  ['Grant Name', 'Award Number', 'Title', 'Status', 'Unit', 'Target Value', 'Actual Value', 'Progress %', 'Due Date', 'Notes'],
+                  deliverables.map(d => [grantName, awardNumber ?? '', d.title, d.status, d.unit ?? '', d.target_value ?? '', d.actual_value, d.progress_percent, d.due_date ?? '', d.notes ?? ''])
+                )}
+              >
+                <Download className="h-3.5 w-3.5" />
+                Export CSV
+              </Button>
+            )}
+            {canEdit && !showAddForm && (
+              <Button variant="outline" size="sm" onClick={() => setShowAddForm(true)} className="flex items-center gap-1.5">
+                <Plus className="h-3.5 w-3.5" />
+                Add Deliverable
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">

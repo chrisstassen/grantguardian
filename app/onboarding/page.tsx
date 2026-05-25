@@ -11,6 +11,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Check, ChevronsUpDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { TOUR_KEY } from '@/components/welcome-tour-modal'
 
 export default function OnboardingPage() {
   const router = useRouter()
@@ -125,6 +126,8 @@ export default function OnboardingPage() {
     if (membershipError) {
       setError('Error joining organization: ' + membershipError.message)
     } else {
+      // Clear tour key so the welcome tour fires on first dashboard load
+      localStorage.removeItem(TOUR_KEY)
       // Force full page reload to refresh organization context
       window.location.href = '/dashboard'
     }
@@ -185,6 +188,8 @@ export default function OnboardingPage() {
     if (membershipError) {
       setError('Error creating membership: ' + membershipError.message)
     } else {
+      // Clear tour key so the welcome tour fires on first dashboard load
+      localStorage.removeItem(TOUR_KEY)
       // Force full page reload to refresh organization context
       window.location.href = '/dashboard'
     }

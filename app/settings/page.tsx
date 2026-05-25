@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { InviteTeamMemberDialog } from '@/components/invite-team-member-dialog'
-import { ArrowLeft, Copy, Check, Trash2, UserCog, Paperclip, LifeBuoy } from 'lucide-react'
+import { ArrowLeft, Copy, Check, Trash2, UserCog, Paperclip, LifeBuoy, Upload, ImageIcon, Loader2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { useOrganization } from '@/contexts/organization-context'
 import { AppLayout } from '@/components/app-layout'
@@ -50,6 +50,10 @@ export default function SettingsPage() {
   const [currentUserId, setCurrentUserId] = useState('')
   const [tickets, setTickets] = useState<any[]>([])
   const [ticketFilter, setTicketFilter] = useState<'all' | 'active'>('active')
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [logoUploading, setLogoUploading] = useState(false)
+  const [logoDeleting, setLogoDeleting] = useState(false)
+  const logoInputRef = useRef<HTMLInputElement>(null)
   const loadOrgTickets = async (organizationId: string) => {
     console.log('Loading tickets for org:', organizationId)
     
@@ -125,6 +129,7 @@ export default function SettingsPage() {
     setOrganizationName(activeOrg.name)
     setOrganizationId(activeOrg.id)
     setInviteCode('') // We'll load this separately
+    setLogoUrl(activeOrg.logo_url ?? null)
 
     // Load invite code
     const { data: org } = await supabase
@@ -184,6 +189,63 @@ export default function SettingsPage() {
     }
   }
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !organizationId) return
+
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+
+    setLogoUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('orgId', organizationId)
+
+      const res = await fetch('/api/user/organizations/logo', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: fd,
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        setLogoUrl(data.logo_url)
+        // Reload to refresh the org context (logo in header)
+        window.location.reload()
+      } else {
+        const err = await res.json().catch(() => ({}))
+        alert('Upload failed: ' + (err.error || 'Unknown error'))
+      }
+    } finally {
+      setLogoUploading(false)
+      if (logoInputRef.current) logoInputRef.current.value = ''
+    }
+  }
+
+  const handleLogoDelete = async () => {
+    if (!organizationId) return
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+
+    setLogoDeleting(true)
+    try {
+      const res = await fetch(`/api/user/organizations/logo?orgId=${organizationId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (res.ok) {
+        setLogoUrl(null)
+        window.location.reload()
+      } else {
+        const err = await res.json().catch(() => ({}))
+        alert('Delete failed: ' + (err.error || 'Unknown error'))
+      }
+    } finally {
+      setLogoDeleting(false)
+    }
+  }
+
   const handleCopyInviteCode = () => {
     navigator.clipboard.writeText(inviteCode)
     alert('Invite code copied to clipboard!')
@@ -234,6 +296,69 @@ export default function SettingsPage() {
     showBackButton={true}
     showSettings={false}  // Don't show Settings button on the Settings page itself
   >
+        {/* Organization Logo */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Organization Logo</CardTitle>
+            <CardDescription>
+              Upload your organization logo to display it in the app header and grant reports. PNG, JPEG, WebP, or SVG — max 2 MB.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-6">
+              {/* Preview */}
+              <div className="flex-shrink-0 w-20 h-20 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center bg-slate-50 overflow-hidden">
+                {logoUrl ? (
+                  <img src={logoUrl} alt="Organization logo" className="w-full h-full object-contain p-1" />
+                ) : (
+                  <ImageIcon className="h-8 w-8 text-slate-300" />
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-col gap-2">
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                  className="hidden"
+                  onChange={handleLogoUpload}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => logoInputRef.current?.click()}
+                  disabled={logoUploading}
+                  className="flex items-center gap-2"
+                >
+                  {logoUploading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4" />
+                  )}
+                  {logoUploading ? 'Uploading…' : logoUrl ? 'Replace Logo' : 'Upload Logo'}
+                </Button>
+                {logoUrl && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleLogoDelete}
+                    disabled={logoDeleting}
+                    className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    {logoDeleting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                    {logoDeleting ? 'Removing…' : 'Remove Logo'}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Invite Code */}
         <Card>
           <CardHeader>

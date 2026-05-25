@@ -28,7 +28,8 @@ import { AddPaymentDialog } from '@/components/add-payment-dialog'
 import { AddNoteDialog } from '@/components/add-note-dialog'
 import { AddReplyDialog } from '@/components/add-reply-dialog'
 import { PaymentDetailDialog } from '@/components/payment-detail-dialog'
-import { Pencil, Trash2, CheckCircle2, Clock, AlertCircle, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Pencil, Trash2, CheckCircle2, Clock, AlertCircle, Sparkles, ChevronLeft, ChevronRight, Download } from 'lucide-react'
+import { exportToCsv } from '@/lib/export-csv'
 import { useOrganization } from '@/contexts/organization-context'
 import { BudgetTab } from '@/components/budget-tab'
 import { GenerateReportDialog } from '@/components/generate-report-dialog'
@@ -36,6 +37,7 @@ import { DeliverablesSection } from '@/components/deliverables-section'
 import { FundingSourcesSection } from '@/components/funding-sources-section'
 import { RequestsTab } from '@/components/requests-tab'
 import { DocumentsTab } from '@/components/documents-tab'
+import { CloseoutTab } from '@/components/closeout-tab'
 
 interface Grant {
   id: string
@@ -86,6 +88,8 @@ export default function GrantDetailsPage() {
   const [requestsCount, setRequestsCount] = useState(0)
   const [requestLinkedExpenseIds, setRequestLinkedExpenseIds] = useState<Set<string>>(new Set())
   const [requestLinkedPaymentIds, setRequestLinkedPaymentIds] = useState<Set<string>>(new Set())
+  const [deliverableCounts, setDeliverableCounts] = useState({ completed: 0, total: 0 })
+  const [closeoutCounts, setCloseoutCounts] = useState({ completed: 0, notApplicable: 0, total: 0 })
 
   // ── Tab bar scroll state ──────────────────────────────────────────────────
   const tabScrollRef = useRef<HTMLDivElement>(null)
@@ -311,6 +315,40 @@ export default function GrantDetailsPage() {
     } catch { /* non-blocking */ }
   }
 
+  const loadDeliverableCounts = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const res = await fetch(`/api/user/grants/${params.id}/deliverables`, {
+      headers: { Authorization: `Bearer ${session.access_token}` }
+    })
+    if (res.ok) {
+      const data = await res.json()
+      const delivs = data.deliverables || []
+      setDeliverableCounts({
+        completed: delivs.filter((d: any) => d.status === 'completed').length,
+        total: delivs.length,
+      })
+    }
+  }
+
+  const loadCloseoutCounts = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const res = await fetch(`/api/user/grants/${params.id}/closeout`, {
+      headers: { Authorization: `Bearer ${session.access_token}` }
+    })
+    if (res.ok) {
+      const data = await res.json()
+      const closeoutItems = data.items || []
+      const notApplicable = closeoutItems.filter((i: any) => i.status === 'not_applicable').length
+      setCloseoutCounts({
+        completed: closeoutItems.filter((i: any) => i.status === 'completed').length,
+        notApplicable,
+        total: closeoutItems.length,
+      })
+    }
+  }
+
   const loadTeamMembers = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user || !activeOrg) return
@@ -459,6 +497,8 @@ export default function GrantDetailsPage() {
     loadNotes()
     loadTeamMembers()
     loadRequestsData()
+    loadDeliverableCounts()
+    loadCloseoutCounts()
   }, [params.id, activeOrg])
 
   const handleDelete = async () => {
@@ -660,6 +700,12 @@ export default function GrantDetailsPage() {
                 Documents
               </TabsTrigger>
               <TabsTrigger
+                value="closeout"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-2 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-200 data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-colors bg-transparent shadow-none"
+              >
+                Closeout
+              </TabsTrigger>
+              <TabsTrigger
                 value="notes"
                 className="inline-flex items-center gap-1.5 whitespace-nowrap px-4 py-2 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-200 data-[state=active]:bg-slate-900 data-[state=active]:text-white transition-colors bg-transparent shadow-none"
               >
@@ -708,17 +754,76 @@ export default function GrantDetailsPage() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-6">
-                {/* Left: Total Project Cost, Status, Funding Agency */}
+              <CardContent className="grid grid-cols-3 gap-6">
+                {/* Col 1: Total Project Cost */}
                 <div>
                   <p className="text-sm font-medium text-slate-600">Total Project Cost</p>
                   <p className="text-2xl font-bold text-slate-900 mt-1">{grant.total_project_cost ? formatCurrency(grant.total_project_cost) : 'Not specified'}</p>
                 </div>
-                {/* Right: Award Amount, Award Number, Program Type */}
+                {/* Col 2: Award Amount */}
                 <div>
                   <p className="text-sm font-medium text-slate-600">Award Amount</p>
                   <p className="text-2xl font-bold text-slate-900 mt-1">{formatCurrency(grant.award_amount)}</p>
                 </div>
+                {/* Col 3: Closeout Readiness — spans 3 rows */}
+                {(() => {
+                  const delivPct = deliverableCounts.total > 0
+                    ? Math.round((deliverableCounts.completed / deliverableCounts.total) * 100)
+                    : 0
+                  const closeoutEffective = closeoutCounts.total - closeoutCounts.notApplicable
+                  const closeoutPct = closeoutEffective > 0
+                    ? Math.round((closeoutCounts.completed / closeoutEffective) * 100)
+                    : 0
+                  return (
+                    <div className="col-start-3 row-start-1 row-span-3 border-l border-slate-200 pl-6 self-start">
+                      <p className="text-sm font-semibold text-slate-700 mb-4">Closeout Readiness</p>
+                      <div className="space-y-5">
+                        {/* Deliverables */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <p className="text-xs font-medium text-slate-600">Deliverables Completed</p>
+                            <span className="text-xs font-semibold text-slate-900">
+                              {deliverableCounts.completed}/{deliverableCounts.total}
+                              <span className="ml-1.5 text-slate-500 font-normal">({delivPct}%)</span>
+                            </span>
+                          </div>
+                          <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                            <div
+                              className="h-2 rounded-full bg-green-500 transition-all"
+                              style={{ width: `${delivPct}%` }}
+                            />
+                          </div>
+                          {deliverableCounts.total === 0 && (
+                            <p className="text-xs text-slate-400 mt-1 italic">No deliverables defined</p>
+                          )}
+                        </div>
+                        {/* Closeout checklist */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <p className="text-xs font-medium text-slate-600">Closeout Checklist</p>
+                            <span className="text-xs font-semibold text-slate-900">
+                              {closeoutCounts.completed}/{closeoutEffective}
+                              <span className="ml-1.5 text-slate-500 font-normal">({closeoutPct}%)</span>
+                            </span>
+                          </div>
+                          <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                            <div
+                              className="h-2 rounded-full bg-purple-500 transition-all"
+                              style={{ width: `${closeoutPct}%` }}
+                            />
+                          </div>
+                          {closeoutCounts.total === 0 && (
+                            <p className="text-xs text-slate-400 mt-1 italic">No checklist generated yet</p>
+                          )}
+                          {closeoutCounts.notApplicable > 0 && (
+                            <p className="text-xs text-slate-400 mt-1">{closeoutCounts.notApplicable} item{closeoutCounts.notApplicable > 1 ? 's' : ''} marked N/A</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
+                {/* Col 1: Status */}
                 <div>
                   <p className="text-sm font-medium text-slate-600">Status</p>
                   <Badge className={`mt-1 ${
@@ -731,19 +836,23 @@ export default function GrantDetailsPage() {
                     {grant.status}
                   </Badge>
                 </div>
+                {/* Col 2: Award Number */}
                 <div>
                   <p className="text-sm font-medium text-slate-600">Award Number</p>
                   <p className="text-lg text-slate-900 mt-1">{grant.award_number || 'Not specified'}</p>
                 </div>
+                {/* Col 1: Funding Agency */}
                 <div>
                   <p className="text-sm font-medium text-slate-600">Funding Agency</p>
                   <p className="text-lg text-slate-900 mt-1">{grant.funding_agency}</p>
                 </div>
+                {/* Col 2: Program Type */}
                 <div>
                   <p className="text-sm font-medium text-slate-600">Program Type</p>
                   <p className="text-lg text-slate-900 mt-1">{grant.program_type || 'Not specified'}</p>
                 </div>
-                <div className="col-span-2 grid grid-cols-2 gap-6 pt-4 border-t">
+                {/* Full-width: Performance Period */}
+                <div className="col-span-3 grid grid-cols-2 gap-6 pt-4 border-t">
                   <div>
                     <p className="text-sm font-medium text-slate-600">Performance Period Start</p>
                     <p className="text-lg text-slate-900 mt-1">{formatDate(grant.period_start)}</p>
@@ -753,8 +862,8 @@ export default function GrantDetailsPage() {
                     <p className="text-lg text-slate-900 mt-1">{formatDate(grant.period_end)}</p>
                   </div>
                 </div>
-                {/* Progress Metrics Row */}
-                <div className="col-span-2 grid grid-cols-3 gap-4 pt-4 border-t">
+                {/* Full-width: Progress Metrics */}
+                <div className="col-span-3 grid grid-cols-3 gap-4 pt-4 border-t">
                   <div className="text-center">
                     <p className="text-sm font-medium text-slate-600">% Complete</p>
                     <p className="text-3xl font-bold text-slate-900 mt-1">{grant.percent_complete ?? 0}%</p>
@@ -790,8 +899,9 @@ export default function GrantDetailsPage() {
                     </div>
                   </div>
                 </div>
+                {/* Full-width: Award Letter */}
                 {grant.award_letter_url && (
-                  <div className="col-span-2">
+                  <div className="col-span-3">
                     <p className="text-sm font-medium text-slate-600 mb-2">Award Letter</p>
                     <div className="flex items-center gap-2">
                       <div className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-lg">
@@ -804,12 +914,12 @@ export default function GrantDetailsPage() {
                           const { data, error } = await supabase.storage
                             .from('award-letters')
                             .download(grant.award_letter_url!)
-                          
+
                           if (error) {
                             alert('Error downloading file')
                             return
                           }
-                          
+
                           const url = URL.createObjectURL(data)
                           const a = document.createElement('a')
                           a.href = url
@@ -937,7 +1047,7 @@ export default function GrantDetailsPage() {
               </CardContent>
             </Card>
 
-            <DeliverablesSection grantId={params.id as string} userRole={userRole} />
+            <DeliverablesSection grantId={params.id as string} userRole={userRole} grantName={grant?.grant_name} awardNumber={grant?.award_number} />
 
             {/* Scope of Work Card */}
             <Card>
@@ -1091,21 +1201,38 @@ export default function GrantDetailsPage() {
                       {openRequirements.length} open • {overdueRequirements.length} overdue • {completedRequirements.length} completed
                     </CardDescription>
                   </div>
-                  {userRole !== 'viewer' && (
-                    <div className="flex gap-2">
-                      {grant.award_letter_url && requirements.length === 0 && (
-                        <Button 
-                          variant="default"
-                          onClick={handleGenerateRequirements}
-                          disabled={generatingRequirements}
-                        >
-                          <Sparkles className="h-4 w-4 mr-2" />
-                          {generatingRequirements ? 'Analyzing Award Letter...' : 'Generate from Award Letter'}
-                        </Button>
-                      )}
-                      <AddRequirementDialog grantId={params.id as string} onRequirementAdded={loadRequirements} />
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {requirements.length > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex items-center gap-1.5"
+                        onClick={() => exportToCsv(
+                          `${grant?.grant_name ?? 'grant'}-requirements`,
+                          ['Grant Name', 'Award Number', 'Title', 'Status', 'Priority', 'Due Date', 'Description', 'Policy Source', 'Policy Citation'],
+                          requirements.map(r => [grant?.grant_name ?? '', grant?.award_number ?? '', r.title ?? '', r.status ?? '', r.priority ?? '', r.due_date ?? '', r.description ?? '', r.policy_source ?? '', r.policy_citation ?? ''])
+                        )}
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        Export CSV
+                      </Button>
+                    )}
+                    {userRole !== 'viewer' && (
+                      <div className="flex gap-2">
+                        {grant.award_letter_url && requirements.length === 0 && (
+                          <Button
+                            variant="default"
+                            onClick={handleGenerateRequirements}
+                            disabled={generatingRequirements}
+                          >
+                            <Sparkles className="h-4 w-4 mr-2" />
+                            {generatingRequirements ? 'Analyzing Award Letter...' : 'Generate from Award Letter'}
+                          </Button>
+                        )}
+                        <AddRequirementDialog grantId={params.id as string} onRequirementAdded={loadRequirements} />
+                      </div>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -1206,9 +1333,26 @@ export default function GrantDetailsPage() {
                       {expenses.length} expense{expenses.length === 1 ? '' : 's'} • {formatCurrency(totalExpenses)} spent
                     </CardDescription>
                   </div>
-                  {userRole !== 'viewer' && (
-                    <AddExpenseChoiceDialog grantId={params.id as string} onExpenseAdded={loadExpenses} />
-                  )}
+                  <div className="flex items-center gap-2">
+                    {expenses.length > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex items-center gap-1.5"
+                        onClick={() => exportToCsv(
+                          `${grant?.grant_name ?? 'grant'}-expenses`,
+                          ['Grant Name', 'Award Number', 'Date', 'Vendor', 'Category', 'Description', 'Invoice Number', 'Amount'],
+                          expenses.map(e => [grant?.grant_name ?? '', grant?.award_number ?? '', e.expense_date ?? '', e.vendor ?? '', e.category ?? '', e.description ?? '', e.invoice_number ?? '', e.amount ?? ''])
+                        )}
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        Export CSV
+                      </Button>
+                    )}
+                    {userRole !== 'viewer' && (
+                      <AddExpenseChoiceDialog grantId={params.id as string} onExpenseAdded={loadExpenses} />
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -1303,9 +1447,26 @@ export default function GrantDetailsPage() {
                       {payments.length} payment{payments.length === 1 ? '' : 's'} • {formatCurrency(totalPayments)} received
                     </CardDescription>
                   </div>
-                  {userRole !== 'viewer' && (
-                    <AddPaymentDialog grantId={params.id as string} onPaymentAdded={loadPayments} />
-                  )}
+                  <div className="flex items-center gap-2">
+                    {payments.length > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex items-center gap-1.5"
+                        onClick={() => exportToCsv(
+                          `${grant?.grant_name ?? 'grant'}-payments`,
+                          ['Grant Name', 'Award Number', 'Date Received', 'Funding Source', 'Reference Number', 'Amount', 'Notes'],
+                          payments.map(p => [grant?.grant_name ?? '', grant?.award_number ?? '', p.received_date ?? '', p.funding_source ?? '', p.reference_number ?? '', p.amount ?? '', p.notes ?? ''])
+                        )}
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        Export CSV
+                      </Button>
+                    )}
+                    {userRole !== 'viewer' && (
+                      <AddPaymentDialog grantId={params.id as string} onPaymentAdded={loadPayments} />
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -1394,6 +1555,8 @@ export default function GrantDetailsPage() {
               expenses={expenses}
               payments={payments}
               userRole={userRole}
+              grantName={grant?.grant_name}
+              awardNumber={grant?.award_number}
               onCountChange={setRequestsCount}
               onLinkedIdsChange={(expIds, payIds) => {
                 setRequestLinkedExpenseIds(new Set(expIds))
@@ -1407,6 +1570,17 @@ export default function GrantDetailsPage() {
             <DocumentsTab
               grantId={params.id as string}
               userRole={userRole}
+            />
+          </TabsContent>
+
+          {/* Closeout Tab */}
+          <TabsContent value="closeout">
+            <CloseoutTab
+              grantId={params.id as string}
+              grantName={grant.grant_name}
+              awardNumber={grant.award_number}
+              userRole={userRole}
+              teamMembers={teamMembers}
             />
           </TabsContent>
 
@@ -1499,8 +1673,9 @@ export default function GrantDetailsPage() {
 
                         {/* Reply button */}
                         {userRole !== 'viewer' && (
-                          <AddReplyDialog 
-                            noteId={note.id} 
+                          <AddReplyDialog
+                            noteId={note.id}
+                            grantId={params.id as string}
                             onReplyAdded={loadNotes}
                           />
                         )}

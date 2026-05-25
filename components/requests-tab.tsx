@@ -21,6 +21,7 @@ import {
   Plus, ChevronDown, ChevronUp, Trash2, FileDown,
   ReceiptText, Link2, Unlink, CreditCard, Loader2, Upload, Download, FileText,
 } from 'lucide-react'
+import { exportToCsv } from '@/lib/export-csv'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -78,6 +79,8 @@ interface RequestsTabProps {
   expenses: any[]
   payments: any[]
   userRole: string
+  grantName?: string
+  awardNumber?: string | null
   onCountChange?: (count: number) => void
   onLinkedIdsChange?: (expenseIds: string[], paymentIds: string[]) => void
 }
@@ -743,7 +746,7 @@ function RequestExpandedDetails({ req, details, canEdit, grantId, onPaymentLink 
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function RequestsTab({ grantId, expenses, payments, userRole, onCountChange, onLinkedIdsChange }: RequestsTabProps) {
+export function RequestsTab({ grantId, expenses, payments, userRole, grantName = '', awardNumber = '', onCountChange, onLinkedIdsChange }: RequestsTabProps) {
   const canEdit = userRole !== 'viewer'
 
   // List state
@@ -1048,11 +1051,39 @@ export function RequestsTab({ grantId, expenses, payments, userRole, onCountChan
             Track reimbursements, RFIs, appeals, extensions, change requests, and closeout.
           </p>
         </div>
-        {canEdit && (
-          <Button size="sm" onClick={openCreate}>
-            <Plus className="h-4 w-4 mr-1" /> New Request
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {requests.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1.5"
+              onClick={() => exportToCsv(
+                'requests',
+                ['Grant Name', 'Award Number', 'Title', 'Request #', 'Type', 'Status', 'Expenses', 'Total Amount', 'Notes', 'Created'],
+                requests.map(r => [
+                  grantName,
+                  awardNumber ?? '',
+                  r.title,
+                  r.request_number ?? '',
+                  r.request_type,
+                  r.status,
+                  r.expense_count,
+                  r.total_amount,
+                  r.notes ?? '',
+                  r.created_at ? new Date(r.created_at).toLocaleDateString() : '',
+                ])
+              )}
+            >
+              <Download className="h-3.5 w-3.5" />
+              Export CSV
+            </Button>
+          )}
+          {canEdit && (
+            <Button size="sm" onClick={openCreate}>
+              <Plus className="h-4 w-4 mr-1" /> New Request
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Filter pills */}
