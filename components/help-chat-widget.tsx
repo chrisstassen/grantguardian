@@ -32,6 +32,10 @@ export function HelpChatWidget() {
   const pathname = usePathname()
   const [showTicketDialog, setShowTicketDialog] = useState(false)
 
+  // Don't render on marketing / auth pages
+  const hiddenPaths = ['/', '/login', '/signup', '/onboarding', '/reset-password', '/update-password']
+  if (hiddenPaths.includes(pathname)) return null
+
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })

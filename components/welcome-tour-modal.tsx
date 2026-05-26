@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import {
@@ -421,6 +422,11 @@ export function WelcomeTourModal({ forceOpen = false, onClose }: WelcomeTourModa
   const [firstName, setFirstName] = useState('')
   const [steps, setSteps] = useState<TourStep[]>([])
   const [ready, setReady] = useState(false)
+  const pathname = usePathname()
+
+  // Don't show on marketing / auth pages
+  const hiddenPaths = ['/', '/login', '/signup', '/onboarding', '/reset-password', '/update-password']
+  if (!forceOpen && hiddenPaths.includes(pathname)) return null
 
   useEffect(() => {
     const init = async () => {
