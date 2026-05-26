@@ -8,7 +8,7 @@ async function authorizeGrant(token: string | null, grantId: string) {
 
   const { data: grant } = await supabaseAdmin
     .from('grants')
-    .select('*, organizations(name)')
+    .select('*, organizations(name, plan)')
     .eq('id', grantId)
     .single()
   if (!grant) return { error: 'Grant not found', status: 404 }
@@ -17,6 +17,12 @@ async function authorizeGrant(token: string | null, grantId: string) {
     .from('user_organization_memberships')
     .select('role').eq('user_id', user.id).eq('organization_id', grant.organization_id).single()
   if (!membership || membership.role === 'viewer') return { error: 'Forbidden', status: 403 }
+
+  // AI closeout generate is a Pro-only feature
+  const orgPlan = (grant.organizations as any)?.plan ?? 'starter'
+  if (orgPlan !== 'pro') {
+    return { error: 'PLAN_LIMIT', message: 'AI-powered closeout checklists require the Pro plan.', status: 403 }
+  }
 
   return { user, grant, role: membership.role }
 }
@@ -29,7 +35,7 @@ export async function POST(
   const { id } = await params
   const token = request.headers.get('authorization')?.replace('Bearer ', '') ?? null
   const auth = await authorizeGrant(token, id)
-  if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
+  if ('error' in auth) return NextResponse.json({ error: auth.error, message: (auth as any).message }, { status: auth.status })
 
   const { grant } = auth
 

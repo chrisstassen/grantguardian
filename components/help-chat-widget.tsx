@@ -7,13 +7,14 @@ import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import ReactMarkdown from 'react-markdown'
 import { CreateSupportTicketDialog } from './create-support-ticket-dialog'
-import { 
-  MessageCircleQuestion, 
-  X, 
-  Send, 
+import { useOrganization } from '@/contexts/organization-context'
+import {
+  MessageCircleQuestion,
+  X,
+  Send,
   Sparkles,
-  LifeBuoy,
-  ChevronDown
+  Lock,
+  ArrowRight,
 } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 
@@ -31,10 +32,13 @@ export function HelpChatWidget() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const pathname = usePathname()
   const [showTicketDialog, setShowTicketDialog] = useState(false)
+  const { activeOrg } = useOrganization()
 
   // Don't render on marketing / auth pages
   const hiddenPaths = ['/', '/login', '/signup', '/onboarding', '/reset-password', '/update-password']
   if (hiddenPaths.includes(pathname)) return null
+
+  const isPro = activeOrg?.plan === 'pro'
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -136,10 +140,14 @@ export function HelpChatWidget() {
           }])
       }
 
-      // Call Claude API
+      // Call Claude API (send auth token for plan check)
+      const { data: { session } } = await supabase.auth.getSession()
       const response = await fetch('/api/help-chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({
           messages: newMessages,
           currentPage: pathname,
@@ -217,8 +225,35 @@ export function HelpChatWidget() {
             </Button>
           </div>
 
+          {/* Pro upgrade gate */}
+          {!isPro && (
+            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+              <div className="h-14 w-14 rounded-full bg-violet-100 flex items-center justify-center mb-4">
+                <Lock className="h-6 w-6 text-violet-600" />
+              </div>
+              <h3 className="font-semibold text-slate-900 mb-2">AI Assistant is a Pro feature</h3>
+              <p className="text-sm text-slate-500 mb-5">
+                Upgrade to Pro to unlock the AI assistant for instant answers on grant compliance, GrantGuardian features, and more.
+              </p>
+              <Button
+                onClick={() => window.open('/#pricing', '_blank')}
+                className="bg-violet-600 hover:bg-violet-500 text-white w-full"
+              >
+                <Sparkles className="h-4 w-4 mr-2" />
+                Upgrade to Pro
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+              <p className="text-xs text-slate-400 mt-4">
+                Need help right now?{' '}
+                <button onClick={() => setShowTicketDialog(true)} className="text-blue-600 hover:underline">
+                  Create a support ticket
+                </button>
+              </p>
+            </div>
+          )}
+
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {isPro && <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {messages.map((msg, idx) => (
               <div
                 key={idx}
@@ -258,10 +293,10 @@ export function HelpChatWidget() {
               </div>
             )}
             <div ref={messagesEndRef} />
-          </div>
+          </div>}
 
-          {/* Input */}
-          <div className="p-4 border-t">
+          {/* Input — Pro only */}
+          {isPro && <div className="p-4 border-t">
             <div className="flex gap-2">
               <Input
                 value={input}
@@ -283,7 +318,7 @@ export function HelpChatWidget() {
                     Create support ticket
                 </button>
             </p>
-          </div>
+          </div>}
         </Card>
       )}
 

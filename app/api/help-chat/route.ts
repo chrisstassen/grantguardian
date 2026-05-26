@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -7,10 +8,33 @@ const anthropic = new Anthropic({
 
 export async function POST(request: Request) {
   try {
+    // Verify auth
+    const authHeader = request.headers.get('authorization')
+    const token = authHeader?.replace('Bearer ', '')
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
+    if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    // Check the user's org plan — AI assistant is a Pro feature
+    const { data: membership } = await supabaseAdmin
+      .from('user_organization_memberships')
+      .select('organization_id, organizations(plan)')
+      .eq('user_id', user.id)
+      .eq('is_primary', true)
+      .single()
+
+    const plan = (membership?.organizations as any)?.plan ?? 'starter'
+    if (plan !== 'pro') {
+      return NextResponse.json(
+        { error: 'PLAN_LIMIT', message: 'The AI assistant is available on the Pro plan.' },
+        { status: 403 }
+      )
+    }
+
     const { messages, category, currentPage, grantContext } = await request.json()
 
-    // Build system prompt based on category and context
-    let systemPrompt = `You are a helpful AI assistant for GrantGuardian, a grant management platform for nonprofits.
+    const systemPrompt = `You are a helpful AI assistant for GrantGuardian, a grant management platform for nonprofits.
 
 You help users with two types of questions:
 
@@ -35,7 +59,6 @@ Response format:
 - Bold important terms or actions
 - Don't use excessive formatting`
 
-    // Call Claude API
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1024,
@@ -46,13 +69,13 @@ Response format:
       }))
     })
 
-    const assistantMessage = response.content[0].type === 'text' 
-      ? response.content[0].text 
+    const assistantMessage = response.content[0].type === 'text'
+      ? response.content[0].text
       : 'I apologize, but I encountered an error processing your request.'
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: assistantMessage,
-      usage: response.usage 
+      usage: response.usage
     })
 
   } catch (error: any) {

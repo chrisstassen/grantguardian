@@ -20,7 +20,7 @@ export async function GET(request: Request) {
   // Use the admin client (service role) to bypass the missing RLS policy
   const { data: memberships, error } = await supabaseAdmin
     .from('user_organization_memberships')
-    .select('organization_id, role, organizations(id, name, logo_path, logo_name)')
+    .select('organization_id, role, organizations(id, name, logo_path, logo_name, plan)')
     .eq('user_id', user.id)
 
   if (error) {
@@ -46,6 +46,7 @@ export async function GET(request: Request) {
         name: org?.name ?? 'Unknown',
         role: m.role,
         logo_url,
+        plan: org?.plan ?? 'starter',
       }
     })
   )

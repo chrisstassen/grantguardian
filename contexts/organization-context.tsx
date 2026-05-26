@@ -9,6 +9,7 @@ interface Organization {
   name: string
   role: string
   logo_url?: string | null
+  plan: 'starter' | 'pro'
 }
 
 interface OrganizationContextType {

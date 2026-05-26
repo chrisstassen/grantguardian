@@ -22,10 +22,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { FileText, Sparkles, Upload, CheckCircle2, AlertCircle, Plus } from 'lucide-react'
+import { FileText, Sparkles, Upload, CheckCircle2, AlertCircle, Plus, Lock } from 'lucide-react'
+import { UpgradePrompt } from '@/components/upgrade-prompt'
+import { PLAN_LIMITS } from '@/lib/plan-limits'
 
 interface AddGrantDialogProps {
   onGrantAdded: () => void
+  activeGrantCount?: number
+  plan?: 'starter' | 'pro'
 }
 
 const emptyForm = {
@@ -42,8 +46,9 @@ const emptyForm = {
 
 type Mode = 'choice' | 'ai-upload' | 'form'
 
-export function AddGrantDialog({ onGrantAdded }: AddGrantDialogProps) {
+export function AddGrantDialog({ onGrantAdded, activeGrantCount = 0, plan = 'starter' }: AddGrantDialogProps) {
   const { activeOrg } = useOrganization()
+  const atGrantLimit = plan === 'starter' && activeGrantCount >= PLAN_LIMITS.starter.maxGrants
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState<Mode>('choice')
   const [loading, setLoading] = useState(false)
@@ -218,13 +223,28 @@ export function AddGrantDialog({ onGrantAdded }: AddGrantDialogProps) {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button><Plus className="h-4 w-4 mr-1" /> Add Grant</Button>
+        <Button disabled={atGrantLimit}>
+          {atGrantLimit ? <Lock className="h-4 w-4 mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
+          Add Grant
+          {atGrantLimit && <span className="ml-1 text-xs opacity-75">(limit reached)</span>}
+        </Button>
       </DialogTrigger>
 
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
 
+        {/* Plan limit banner */}
+        {atGrantLimit && (
+          <div className="p-6">
+            <UpgradePrompt
+              reason="You've reached the 5-grant limit on the Starter plan"
+              description="Upgrade to Pro for unlimited grants, unlimited team members, and AI-powered features."
+              variant="card"
+            />
+          </div>
+        )}
+
         {/* ── Choice screen ─────────────────────────────────── */}
-        {mode === 'choice' && (
+        {!atGrantLimit && mode === 'choice' && (
           <>
             <DialogHeader>
               <DialogTitle>Add New Grant</DialogTitle>
@@ -262,7 +282,7 @@ export function AddGrantDialog({ onGrantAdded }: AddGrantDialogProps) {
         )}
 
         {/* ── AI upload screen ───────────────────────────────── */}
-        {mode === 'ai-upload' && (
+        {!atGrantLimit && mode === 'ai-upload' && (
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -343,7 +363,7 @@ export function AddGrantDialog({ onGrantAdded }: AddGrantDialogProps) {
         )}
 
         {/* ── Grant form (manual or post-extraction) ─────────── */}
-        {mode === 'form' && (
+        {!atGrantLimit && mode === 'form' && (
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">

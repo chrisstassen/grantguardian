@@ -209,7 +209,11 @@ export default function DashboardPage() {
             </p>
           </div>
           {activeOrg?.role !== 'viewer' && (
-            <AddGrantDialog onGrantAdded={loadGrants} />
+            <AddGrantDialog
+              onGrantAdded={loadGrants}
+              activeGrantCount={grants.filter(g => g.status === 'active').length}
+              plan={activeOrg?.plan ?? 'starter'}
+            />
           )}
         </div>
 

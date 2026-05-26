@@ -20,19 +20,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { UserPlus } from 'lucide-react'
+import { UserPlus, Lock } from 'lucide-react'
+import { UpgradePrompt } from '@/components/upgrade-prompt'
+import { PLAN_LIMITS } from '@/lib/plan-limits'
 
 interface InviteTeamMemberDialogProps {
   organizationId: string
   organizationName: string
   onInviteSent: () => void
+  currentMemberCount?: number
+  plan?: 'starter' | 'pro'
 }
 
-export function InviteTeamMemberDialog({ 
-  organizationId, 
+export function InviteTeamMemberDialog({
+  organizationId,
   organizationName,
-  onInviteSent 
+  onInviteSent,
+  currentMemberCount = 0,
+  plan = 'starter',
 }: InviteTeamMemberDialogProps) {
+  const atMemberLimit = plan === 'starter' && currentMemberCount >= PLAN_LIMITS.starter.maxMembers
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [email, setEmail] = useState('')
@@ -153,12 +160,23 @@ export function InviteTeamMemberDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <UserPlus className="h-4 w-4 mr-2" />
+        <Button disabled={atMemberLimit}>
+          {atMemberLimit ? <Lock className="h-4 w-4 mr-2" /> : <UserPlus className="h-4 w-4 mr-2" />}
           Invite Team Member
+          {atMemberLimit && <span className="ml-1 text-xs opacity-75">(limit reached)</span>}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-md">
+        {atMemberLimit ? (
+          <div className="p-2">
+            <UpgradePrompt
+              reason="You've reached the 5-member limit on the Starter plan"
+              description="Upgrade to Pro for unlimited team members and AI-powered features."
+              variant="card"
+            />
+          </div>
+        ) : (
+        <>
         <DialogHeader>
           <DialogTitle>Invite Team Member</DialogTitle>
           <DialogDescription>
@@ -207,6 +225,8 @@ export function InviteTeamMemberDialog({
             </Button>
           </div>
         </form>
+        </>
+        )}
       </DialogContent>
     </Dialog>
   )

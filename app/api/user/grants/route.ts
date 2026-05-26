@@ -29,6 +29,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
+  // Enforce Starter plan grant limit
+  const { data: org } = await supabaseAdmin
+    .from('organizations')
+    .select('plan')
+    .eq('id', organization_id)
+    .single()
+
+  if (org?.plan === 'starter') {
+    const { count } = await supabaseAdmin
+      .from('grants')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', organization_id)
+      .eq('status', 'active')
+
+    if ((count ?? 0) >= 5) {
+      return NextResponse.json(
+        { error: 'PLAN_LIMIT', message: 'Starter plan is limited to 5 active grants. Upgrade to Pro for unlimited grants.' },
+        { status: 403 }
+      )
+    }
+  }
+
   const { data: grant, error: insertError } = await supabaseAdmin
     .from('grants')
     .insert([{

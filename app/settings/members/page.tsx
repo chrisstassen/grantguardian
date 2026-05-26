@@ -165,10 +165,12 @@ export default function SettingsMembersPage() {
                   {teamMembers.length} member{teamMembers.length === 1 ? '' : 's'}
                 </CardDescription>
               </div>
-              <InviteTeamMemberDialog 
+              <InviteTeamMemberDialog
                 organizationId={organizationId}
                 organizationName={organizationName}
                 onInviteSent={() => loadTeamMembers(organizationId)}
+                currentMemberCount={teamMembers.length}
+                plan={activeOrg?.plan ?? 'starter'}
               />
             </div>
           </CardHeader>
