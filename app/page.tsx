@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { ComingSoonDialog } from '@/components/coming-soon-dialog'
 import {
   ShieldCheck,
   LayoutDashboard,
@@ -24,7 +25,7 @@ import {
 
 // ─── Nav ──────────────────────────────────────────────────────────────────────
 
-function Nav() {
+function Nav({ onSignUp }: { onSignUp: () => void }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
 
@@ -64,12 +65,12 @@ function Nav() {
           >
             Log in
           </Link>
-          <Link
-            href="/signup"
+          <button
+            onClick={onSignUp}
             className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
           >
             Get started free
-          </Link>
+          </button>
         </div>
 
         {/* Mobile menu button */}
@@ -89,7 +90,7 @@ function Nav() {
           <a href="#pricing" className="block text-slate-300 hover:text-white text-sm font-medium" onClick={() => setMenuOpen(false)}>Pricing</a>
           <div className="pt-2 flex flex-col gap-2 border-t border-slate-800">
             <Link href="/login" className="block text-slate-300 hover:text-white text-sm font-medium py-2">Log in</Link>
-            <Link href="/signup" className="block bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-5 py-2.5 rounded-lg text-center transition-colors">Get started free</Link>
+            <button onClick={onSignUp} className="block w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-5 py-2.5 rounded-lg text-center transition-colors">Get started free</button>
           </div>
         </div>
       )}
@@ -99,7 +100,7 @@ function Nav() {
 
 // ─── Hero ─────────────────────────────────────────────────────────────────────
 
-function Hero() {
+function Hero({ onSignUp }: { onSignUp: () => void }) {
   return (
     <section className="relative min-h-screen flex items-center bg-slate-900 overflow-hidden">
       {/* Background gradient orbs */}
@@ -143,13 +144,13 @@ function Hero() {
 
         {/* CTAs */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link
-            href="/signup"
+          <button
+            onClick={onSignUp}
             className="group flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold px-8 py-4 rounded-xl text-lg transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40"
           >
-            Start for free
+            Get notified at launch
             <ArrowRight className="h-5 w-5 group-hover:translate-x-0.5 transition-transform" />
-          </Link>
+          </button>
           <a
             href="#how-it-works"
             className="flex items-center gap-2 text-slate-300 hover:text-white font-medium px-8 py-4 rounded-xl border border-slate-700 hover:border-slate-500 transition-all text-lg"
@@ -407,8 +408,7 @@ const plans = [
       'CSV data exports',
       'Email support',
     ],
-    cta: 'Get started',
-    ctaHref: '/signup',
+    cta: 'Get early access',
   },
   {
     name: 'Pro',
@@ -427,12 +427,11 @@ const plans = [
       'Role-based access control',
       'Priority email & chat support',
     ],
-    cta: 'Start free trial',
-    ctaHref: '/signup',
+    cta: 'Get early access',
   },
 ]
 
-function Pricing() {
+function Pricing({ onSignUp }: { onSignUp: () => void }) {
   return (
     <section id="pricing" className="bg-slate-950 py-28">
       <div className="max-w-7xl mx-auto px-6">
@@ -482,16 +481,16 @@ function Pricing() {
                 ))}
               </ul>
 
-              <Link
-                href={plan.ctaHref}
-                className={`block text-center font-semibold py-3.5 rounded-xl transition-all ${
+              <button
+                onClick={onSignUp}
+                className={`block w-full text-center font-semibold py-3.5 rounded-xl transition-all ${
                   plan.highlight
                     ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/25'
                     : 'bg-slate-700 hover:bg-slate-600 text-white'
                 }`}
               >
                 {plan.cta}
-              </Link>
+              </button>
             </div>
           ))}
         </div>
@@ -509,7 +508,7 @@ function Pricing() {
 
 // ─── Final CTA ────────────────────────────────────────────────────────────────
 
-function FinalCTA() {
+function FinalCTA({ onSignUp }: { onSignUp: () => void }) {
   return (
     <section className="bg-slate-900 py-28">
       <div className="max-w-4xl mx-auto px-6 text-center">
@@ -529,13 +528,13 @@ function FinalCTA() {
               Join nonprofits using GrantGuardian to stay compliant, hit deadlines, and close out grants without the last-minute scramble.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link
-                href="/signup"
+              <button
+                onClick={onSignUp}
                 className="group flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold px-8 py-4 rounded-xl text-lg transition-all shadow-lg shadow-blue-500/25"
               >
-                Create your free account
+                Get notified at launch
                 <ChevronRight className="h-5 w-5 group-hover:translate-x-0.5 transition-transform" />
-              </Link>
+              </button>
               <Link
                 href="/login"
                 className="text-slate-300 hover:text-white font-medium px-6 py-4 transition-colors text-lg"
@@ -584,15 +583,19 @@ function Footer() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const openDialog = useCallback(() => setDialogOpen(true), [])
+
   return (
     <div className="min-h-screen">
-      <Nav />
-      <Hero />
+      <Nav onSignUp={openDialog} />
+      <Hero onSignUp={openDialog} />
       <Features />
       <HowItWorks />
-      <Pricing />
-      <FinalCTA />
+      <Pricing onSignUp={openDialog} />
+      <FinalCTA onSignUp={openDialog} />
       <Footer />
+      <ComingSoonDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
   )
 }
