@@ -424,12 +424,16 @@ export function WelcomeTourModal({ forceOpen = false, onClose }: WelcomeTourModa
   const [ready, setReady] = useState(false)
   const pathname = usePathname()
 
-  // Don't show on marketing / auth pages
+  // Compute whether this is a marketing/auth page — used inside useEffect and render guard
   const hiddenPaths = ['/', '/login', '/signup', '/onboarding', '/reset-password', '/update-password']
-  if (!forceOpen && hiddenPaths.includes(pathname)) return null
+  const isHiddenPath = !forceOpen && hiddenPaths.includes(pathname)
 
+  // All hooks must be called before any conditional return (Rules of Hooks)
   useEffect(() => {
     const init = async () => {
+      // Don't run on marketing / auth pages
+      if (isHiddenPath) return
+
       // Don't show if already completed (unless forced)
       if (!forceOpen && typeof window !== 'undefined') {
         const completed = localStorage.getItem(TOUR_KEY)
@@ -470,7 +474,7 @@ export function WelcomeTourModal({ forceOpen = false, onClose }: WelcomeTourModa
     }
 
     init()
-  }, [forceOpen])
+  }, [forceOpen, isHiddenPath])
 
   const handleClose = () => {
     if (typeof window !== 'undefined') {
@@ -492,7 +496,7 @@ export function WelcomeTourModal({ forceOpen = false, onClose }: WelcomeTourModa
     if (step > 0) setStep(step - 1)
   }
 
-  if (!ready || steps.length === 0) return null
+  if (!ready || steps.length === 0 || isHiddenPath) return null
 
   const current = steps[step]
   const isLast = step === steps.length - 1
