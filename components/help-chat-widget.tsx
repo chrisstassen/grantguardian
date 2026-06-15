@@ -34,23 +34,25 @@ export function HelpChatWidget() {
   const [showTicketDialog, setShowTicketDialog] = useState(false)
   const { activeOrg } = useOrganization()
 
-  // Don't render on marketing / auth pages
+  // Compute hidden state — used to guard effects and the render (never used for early return)
   const hiddenPaths = ['/', '/login', '/signup', '/onboarding', '/reset-password', '/update-password']
-  if (hiddenPaths.includes(pathname)) return null
-
+  const isHiddenPage = hiddenPaths.includes(pathname)
   const isPro = activeOrg?.plan === 'pro'
 
   // Auto-scroll to bottom when new messages arrive
+  // All hooks must be declared before any conditional return (Rules of Hooks)
   useEffect(() => {
+    if (isHiddenPage) return
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages, isHiddenPage])
 
   // Load conversation history
   useEffect(() => {
+    if (isHiddenPage) return
     if (isOpen && !conversationId) {
       loadOrCreateConversation()
     }
-  }, [isOpen])
+  }, [isOpen, isHiddenPage])
 
   const loadOrCreateConversation = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -189,6 +191,9 @@ export function HelpChatWidget() {
       handleSend()
     }
   }
+
+  // Don't render on marketing / auth pages — placed after all hooks
+  if (isHiddenPage) return null
 
   return (
     <>
