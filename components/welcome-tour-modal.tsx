@@ -503,7 +503,7 @@ export function WelcomeTourModal({ forceOpen = false, onClose }: WelcomeTourModa
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose() }}>
-      <DialogContent className="max-w-lg p-0 overflow-hidden gap-0">
+      <DialogContent className="max-w-lg p-0 overflow-hidden gap-0" showCloseButton={false}>
         {/* Top accent bar */}
         <div className="h-1.5 bg-gradient-to-r from-blue-500 via-violet-500 to-indigo-600 rounded-t-lg" />
 

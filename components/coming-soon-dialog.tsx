@@ -77,7 +77,7 @@ export function ComingSoonDialog({ open, onOpenChange }: ComingSoonDialogProps) 
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md p-0 overflow-hidden gap-0">
+      <DialogContent className="max-w-md p-0 overflow-hidden gap-0" showCloseButton={false}>
         {/* Top gradient bar */}
         <div className="h-1.5 bg-gradient-to-r from-blue-500 via-violet-500 to-indigo-600" />
 
