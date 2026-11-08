@@ -10,12 +10,15 @@ everything: tables, security policies, helper functions and storage buckets.
 | `..._functions.sql` | Access helpers used by policies, guard triggers, email sync, RPCs |
 | `..._rls_policies.sql` | Who can read and write each table |
 | `..._storage.sql` | The six private storage buckets and file-access rules |
+| `..._lock_down_anon_and_graphql.sql` | Removes all signed-out table access (except joining the waitlist) and turns off GraphQL |
 
 ## Rules for changes
 
 - Every schema change goes in a **new** migration file here
   (`YYYYMMDDHHMMSS_description.sql`). Do not edit tables by hand in the SQL editor.
 - Every new table needs `enable row level security` and policies in the same file.
+- Signed-out visitors (`anon`) get no access to new tables or functions unless a
+  migration grants it explicitly.
 - Server routes that use `supabaseAdmin` bypass all policies; they must call
   `requireUser` / `requireSystemAdmin` from `lib/api-auth.ts` first.
 - Browser calls to `/api/*` routes use `authFetch` from `lib/auth-fetch.ts`.
