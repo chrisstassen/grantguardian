@@ -25,6 +25,7 @@ import {
 import { FileText, Sparkles, Upload, CheckCircle2, AlertCircle, Plus, Lock } from 'lucide-react'
 import { UpgradePrompt } from '@/components/upgrade-prompt'
 import { PLAN_LIMITS } from '@/lib/plan-limits'
+import { authFetch } from '@/lib/auth-fetch'
 
 interface AddGrantDialogProps {
   onGrantAdded: () => void
@@ -112,7 +113,7 @@ export function AddGrantDialog({ onGrantAdded, activeGrantCount = 0, plan = 'sta
         const base64 = dataUrl.split(',')[1]
         const mediaType = awardLetterFile.type
 
-        const res = await fetch('/api/extract-grant', {
+        const res = await authFetch('/api/extract-grant', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ file_data: base64, media_type: mediaType })

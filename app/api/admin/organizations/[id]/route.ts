@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireSystemAdmin } from '@/lib/api-auth'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireSystemAdmin(request)
+  if (auth.error) return auth.error
+
   try {
     const { id } = await params
 
@@ -72,6 +76,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireSystemAdmin(request)
+  if (auth.error) return auth.error
+
   try {
     const { id } = await params
     const body = await request.json()

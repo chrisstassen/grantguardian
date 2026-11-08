@@ -19,6 +19,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { authFetch } from '@/lib/auth-fetch'
 
 interface Note {
   id: string
@@ -225,7 +226,7 @@ export function SupportTicketNotes({ ticketId, isSystemAdmin }: SupportTicketNot
         const recipient = availableUsers.find(u => u.id === mentionedUserId)
         if (recipient?.email) {
           try {
-            await fetch('/api/send-ticket-mention-email', {
+            await authFetch('/api/send-ticket-mention-email', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({

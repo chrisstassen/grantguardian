@@ -38,6 +38,7 @@ import { FundingSourcesSection } from '@/components/funding-sources-section'
 import { RequestsTab } from '@/components/requests-tab'
 import { DocumentsTab } from '@/components/documents-tab'
 import { CloseoutTab } from '@/components/closeout-tab'
+import { authFetch } from '@/lib/auth-fetch'
 
 interface Grant {
   id: string
@@ -404,7 +405,7 @@ export default function GrantDetailsPage() {
         ? 'application/pdf' 
         : 'image/jpeg'
       
-      const response = await fetch('/api/analyze-award-letter', {
+      const response = await authFetch('/api/analyze-award-letter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

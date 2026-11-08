@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireUser } from '@/lib/api-auth'
 
 export async function POST(request: NextRequest) {
+  const auth = await requireUser(request)
+  if (auth.error) return auth.error
+
   try {
     const { file_data, media_type, grant_info } = await request.json()
 

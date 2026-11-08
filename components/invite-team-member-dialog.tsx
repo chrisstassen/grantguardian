@@ -23,6 +23,7 @@ import {
 import { UserPlus, Lock } from 'lucide-react'
 import { UpgradePrompt } from '@/components/upgrade-prompt'
 import { PLAN_LIMITS } from '@/lib/plan-limits'
+import { authFetch } from '@/lib/auth-fetch'
 
 interface InviteTeamMemberDialogProps {
   organizationId: string
@@ -128,7 +129,7 @@ export function InviteTeamMemberDialog({
     }
 
     // Send invitation email via API
-    const response = await fetch('/api/send-invitation-email', {
+    const response = await authFetch('/api/send-invitation-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

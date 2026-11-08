@@ -1,87 +1,41 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/lib/supabase-admin'
+import { requireUser, forbidden } from '@/lib/api-auth'
 
-console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
-console.log('Service role key exists:', !!process.env.SUPABASE_SERVICE_ROLE_KEY)
-console.log('Service role key starts with:', process.env.SUPABASE_SERVICE_ROLE_KEY?.substring(0, 20))
-
-
-// Create admin client with service role
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-)
-
+// Changes a user's login email immediately (no confirmation email).
+// Callers may only change their own email; system admins may change anyone's.
 export async function POST(request: Request) {
+  const auth = await requireUser(request)
+  if (auth.error) return auth.error
+
   try {
     const { userId, newEmail } = await request.json()
 
-    console.log('Updating email for user:', userId, 'to:', newEmail)
-
     if (!userId || !newEmail) {
-      return NextResponse.json(
-        { error: 'Missing userId or newEmail' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Missing userId or newEmail' }, { status: 400 })
+    }
+    if (userId !== auth.user.id && !auth.isSystemAdmin) {
+      return forbidden()
     }
 
-    // Verify the request is from an authenticated user
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
+    const email = String(newEmail).trim().toLowerCase()
 
-    console.log('Calling updateUserById with userId:', userId)
-
-    // Update email in auth.users using admin API
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.updateUserById(
-      userId,
-      { email: newEmail }
-    )
-
-    console.log('Update result:', { authData, authError })
-
+    const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(userId, { email })
     if (authError) {
-      console.error('Error updating auth email:', authError)
-      return NextResponse.json(
-        { error: authError.message },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: authError.message }, { status: 400 })
     }
 
-    // Update email in user_profiles
     const { error: profileError } = await supabaseAdmin
       .from('user_profiles')
-      .update({ email: newEmail })
+      .update({ email })
       .eq('id', userId)
-
     if (profileError) {
-      console.error('Error updating profile email:', profileError)
-      return NextResponse.json(
-        { error: profileError.message },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: profileError.message }, { status: 500 })
     }
 
-    return NextResponse.json({ 
-      success: true,
-      message: 'Email updated successfully in both auth and profile'
-    })
-
-  } catch (error: any) {
-    console.error('Email update error:', error)
-    return NextResponse.json(
-      { error: error.message },
-      { status: 500 }
-    )
+    return NextResponse.json({ success: true, message: 'Email updated' })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Email update failed'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

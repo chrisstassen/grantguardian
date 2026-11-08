@@ -28,6 +28,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { authFetch } from '@/lib/auth-fetch'
 
 export default function TicketDetailPage() {
   const router = useRouter()
@@ -194,7 +195,7 @@ export default function TicketDetailPage() {
             }])
 
           // Send email
-          await fetch('/api/send-notification-email', {
+          await authFetch('/api/send-notification-email', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

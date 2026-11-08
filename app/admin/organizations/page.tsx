@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { ArrowLeft, Search, Users, Calendar } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { AdminLayout } from '@/components/admin-layout'
+import { authFetch } from '@/lib/auth-fetch'
 
 export default function AdminOrganizationsPage() {
   const router = useRouter()
@@ -44,7 +45,7 @@ export default function AdminOrganizationsPage() {
   }
 
   const loadOrganizations = async () => {
-    const res = await fetch('/api/admin/organizations')
+    const res = await authFetch('/api/admin/organizations')
     const json = await res.json()
     if (json.organizations) {
       setOrganizations(json.organizations)

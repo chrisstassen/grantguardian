@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireUser } from '@/lib/api-auth'
 import Anthropic from '@anthropic-ai/sdk'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export async function POST(request: NextRequest) {
+  const auth = await requireUser(request)
+  if (auth.error) return auth.error
+
   try {
     const { file_data, media_type } = await request.json()
 

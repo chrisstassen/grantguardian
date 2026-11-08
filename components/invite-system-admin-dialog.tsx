@@ -14,6 +14,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { UserPlus } from 'lucide-react'
+import { authFetch } from '@/lib/auth-fetch'
 
 interface InviteSystemAdminDialogProps {
   onInviteSent: () => void
@@ -84,7 +85,7 @@ export function InviteSystemAdminDialog({ onInviteSent }: InviteSystemAdminDialo
         : 'A GrantGuardian administrator'
 
       // Send invitation email
-      const emailResponse = await fetch('/api/send-invitation-email', {
+      const emailResponse = await authFetch('/api/send-invitation-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

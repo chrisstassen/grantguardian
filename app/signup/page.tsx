@@ -33,13 +33,10 @@ function SignupForm() {
     let systemAdminInvite = null
     if (systemAdminInviteToken) {
       const { data, error: inviteError } = await supabase
-        .from('system_admin_invitations')
-        .select('*')
-        .eq('token', systemAdminInviteToken)
-        .eq('status', 'pending')
-        .single()
+        .rpc('get_system_admin_invitation', { p_token: systemAdminInviteToken })
+        .maybeSingle<{ id: string; invited_email: string; status: string; expires_at: string }>()
 
-      if (inviteError || !data) {
+      if (inviteError || !data || data.status !== 'pending') {
         setError('Invalid or expired system admin invitation link')
         setLoading(false)
         return
@@ -53,7 +50,7 @@ function SignupForm() {
       }
 
       // Check if email matches invitation
-      if (data.invited_email !== email) {
+      if (data.invited_email.toLowerCase() !== email.trim().toLowerCase()) {
         setError(`This invitation was sent to ${data.invited_email}. Please use that email address.`)
         setLoading(false)
         return
@@ -65,14 +62,11 @@ function SignupForm() {
     // Validate team invitation if token exists
     let invitation = null
     if (inviteToken) {
-     const { data, error: inviteError } = await supabase
-        .from('team_invitations')
-        .select('*, organizations(name)')
-        .eq('token', inviteToken)
-        .eq('status', 'pending')
-        .single()
+      const { data, error: inviteError } = await supabase
+        .rpc('get_team_invitation', { p_token: inviteToken })
+        .maybeSingle<{ id: string; organization_id: string; organization_name: string; invited_email: string; role: string; status: string; expires_at: string }>()
 
-      if (inviteError || !data) {
+      if (inviteError || !data || data.status !== 'pending') {
         setError('Invalid or expired invitation link')
         setLoading(false)
         return
@@ -86,7 +80,7 @@ function SignupForm() {
       }
 
       // Check if email matches invitation
-      if (data.invited_email !== email) {
+      if (data.invited_email.toLowerCase() !== email.trim().toLowerCase()) {
         setError(`This invitation was sent to ${data.invited_email}. Please use that email address.`)
         setLoading(false)
         return

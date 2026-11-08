@@ -43,7 +43,7 @@ function LoginForm() {
     .eq('id', user.id)
     .single()
 
-  if (profile?.email !== invitation.invited_email) {
+  if ((profile?.email ?? user.email ?? '').toLowerCase() !== invitation.invited_email.toLowerCase()) {
     setError('This invitation was sent to a different email address')
     return
   }

@@ -1,11 +1,54 @@
 import { NextResponse } from 'next/server'
 import { Resend } from 'resend'
+import { supabaseAdmin } from '@/lib/supabase-admin'
+import { requireUser, forbidden } from '@/lib/api-auth'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 export async function POST(request: Request) {
+  const auth = await requireUser(request)
+  if (auth.error) return auth.error
+
   try {
-    const { recipientEmail, organizationName, role, token, inviterName, isSystemAdmin } = await request.json()
+    const { recipientEmail, role, token, inviterName, isSystemAdmin } = await request.json()
+    if (!recipientEmail || !token) {
+      return NextResponse.json({ error: 'Missing recipientEmail or token' }, { status: 400 })
+    }
+
+    // Only email a real, pending invitation, sent by someone allowed to issue it.
+    // The organization name comes from the database so it can't be spoofed.
+    let organizationName: string
+    if (isSystemAdmin) {
+      if (!auth.isSystemAdmin) return forbidden()
+      const { data: invite } = await supabaseAdmin
+        .from('system_admin_invitations')
+        .select('invited_email')
+        .eq('token', token)
+        .eq('status', 'pending')
+        .maybeSingle()
+      if (!invite || invite.invited_email.toLowerCase() !== String(recipientEmail).toLowerCase()) {
+        return forbidden()
+      }
+      organizationName = 'GrantGuardian System Administration'
+    } else {
+      const { data: invite } = await supabaseAdmin
+        .from('team_invitations')
+        .select('invited_email, organization_id, organizations(name)')
+        .eq('token', token)
+        .eq('status', 'pending')
+        .maybeSingle()
+      if (!invite || invite.invited_email.toLowerCase() !== String(recipientEmail).toLowerCase()) {
+        return forbidden()
+      }
+      const { data: membership } = await supabaseAdmin
+        .from('user_organization_memberships')
+        .select('role')
+        .eq('user_id', auth.user.id)
+        .eq('organization_id', invite.organization_id)
+        .maybeSingle()
+      if (membership?.role !== 'admin' && !auth.isSystemAdmin) return forbidden()
+      organizationName = (invite.organizations as unknown as { name: string } | null)?.name ?? 'your organization'
+    }
 
     const inviteUrl = isSystemAdmin
       ? `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/signup?system_admin_invite=${token}`

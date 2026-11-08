@@ -10,6 +10,7 @@ import { ArrowLeft, Search, Building2, Shield } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { InviteSystemAdminDialog } from '@/components/invite-system-admin-dialog'
 import { AdminLayout } from '@/components/admin-layout'
+import { authFetch } from '@/lib/auth-fetch'
 
 export default function AdminUsersPage() {
   const router = useRouter()
@@ -45,7 +46,7 @@ export default function AdminUsersPage() {
   }
 
   const loadUsers = async () => {
-    const res = await fetch('/api/admin/users')
+    const res = await authFetch('/api/admin/users')
     const json = await res.json()
     if (json.users) {
       setUsers(json.users)

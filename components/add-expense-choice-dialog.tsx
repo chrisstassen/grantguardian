@@ -10,6 +10,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
 import { FileText, Sparkles, Upload, AlertTriangle, AlertCircle, Plus, Trash2, Link2 } from 'lucide-react'
+import { authFetch } from '@/lib/auth-fetch'
 
 interface AddExpenseChoiceDialogProps {
   grantId: string
@@ -327,7 +328,7 @@ export function AddExpenseChoiceDialog({ grantId, onExpenseAdded }: AddExpenseCh
         reader.onerror = reject
         reader.readAsDataURL(file)
       })
-      const response = await fetch('/api/extract-invoice', {
+      const response = await authFetch('/api/extract-invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ file_data: base64, media_type: file.type || 'application/pdf' })

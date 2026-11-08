@@ -1,11 +1,19 @@
 import { NextResponse } from 'next/server'
+import { requireUser, canEmailRecipient, forbidden } from '@/lib/api-auth'
 import { Resend } from 'resend'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 export async function POST(request: Request) {
+  const auth = await requireUser(request)
+  if (auth.error) return auth.error
+
   try {
     const { recipientEmail, recipientName, senderName, grantName, notificationType, grantId } = await request.json()
+
+    if (!recipientEmail || !(await canEmailRecipient({ id: auth.user.id, isSystemAdmin: auth.isSystemAdmin }, recipientEmail))) {
+      return forbidden()
+    }
 
     const subject = notificationType === 'note_mention' 
       ? `You were mentioned in a note on ${grantName}`

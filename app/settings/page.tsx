@@ -251,36 +251,6 @@ export default function SettingsPage() {
     alert('Invite code copied to clipboard!')
   }
 
-  const handleRemoveUser = async (userId: string) => {
-    const { error } = await supabase
-      .from('user_profiles')
-      .delete()
-      .eq('id', userId)
-
-    if (error) {
-      alert('Error removing user: ' + error.message)
-    } else {
-      setTeamMembers(teamMembers.filter(m => m.id !== userId))
-      alert('User removed successfully')
-    }
-  }
-
-  const handleChangeRole = async (userId: string, newRole: string) => {
-    const { error } = await supabase
-      .from('user_profiles')
-      .update({ role: newRole })
-      .eq('id', userId)
-
-    if (error) {
-      alert('Error updating role: ' + error.message)
-    } else {
-      setTeamMembers(teamMembers.map(m => 
-        m.id === userId ? { ...m, role: newRole } : m
-      ))
-      alert('Role updated successfully')
-    }
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">

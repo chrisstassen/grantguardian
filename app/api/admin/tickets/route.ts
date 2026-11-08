@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
+import { requireSystemAdmin } from '@/lib/api-auth'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
-export async function GET() {
+export async function GET(request: Request) {
+  const auth = await requireSystemAdmin(request)
+  if (auth.error) return auth.error
+
   try {
     const { data: tickets, error } = await supabaseAdmin
       .from('support_tickets')

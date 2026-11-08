@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { ArrowLeft, Search, Building2, User } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { AdminLayout } from '@/components/admin-layout'
+import { authFetch } from '@/lib/auth-fetch'
 
 export default function AdminTicketsPage() {
   const router = useRouter()
@@ -45,7 +46,7 @@ export default function AdminTicketsPage() {
   }
 
   const loadTickets = async () => {
-    const res = await fetch('/api/admin/tickets')
+    const res = await authFetch('/api/admin/tickets')
     const json = await res.json()
     if (json.tickets) {
       setTickets(json.tickets)

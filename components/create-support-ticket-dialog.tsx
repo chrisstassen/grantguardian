@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select'
 import { useOrganization } from '@/contexts/organization-context'
 import { Upload, X } from 'lucide-react'
+import { authFetch } from '@/lib/auth-fetch'
 
 interface CreateSupportTicketDialogProps {
   open: boolean
@@ -137,7 +138,7 @@ export function CreateSupportTicketDialog({
             }])
 
           // Send email notification
-          await fetch('/api/send-notification-email', {
+          await authFetch('/api/send-notification-email', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

@@ -51,10 +51,8 @@ export default function OnboardingPage() {
   }
 
   const loadOrganizations = async () => {
-    const { data } = await supabase
-      .from('organizations')
-      .select('id, name')
-      .order('name')
+    // Names only; invite codes are never sent to the browser
+    const { data } = await supabase.rpc('list_organizations_for_join')
     
     if (data) {
       setOrganizations(data)
@@ -82,19 +80,6 @@ export default function OnboardingPage() {
       return
     }
 
-    // Verify invite code
-    const { data: org, error: orgError } = await supabase
-      .from('organizations')
-      .select('id, invite_code')
-      .eq('id', selectedOrgId)
-      .single()
-
-    if (orgError || !org || org.invite_code !== inviteCode) {
-      setError('Invalid invite code')
-      setLoading(false)
-      return
-    }
-
     // Create or update user profile (without organization_id)
     const { error: profileError } = await supabase
       .from('user_profiles')
@@ -111,20 +96,18 @@ export default function OnboardingPage() {
       return
     }
 
-    // Create organization membership
-    const { error: membershipError } = await supabase
-      .from('user_organization_memberships')
-      .insert([{
-        user_id: user.id,
-        organization_id: org.id,
-        role: 'staff',
-        is_primary: true
-      }])
+    // Join as staff; the database checks the invite code
+    const { error: membershipError } = await supabase.rpc('join_organization_with_code', {
+      p_org_id: selectedOrgId,
+      p_invite_code: inviteCode
+    })
 
     setLoading(false)
 
     if (membershipError) {
-      setError('Error joining organization: ' + membershipError.message)
+      setError(membershipError.message === 'Invalid invite code'
+        ? 'Invalid invite code'
+        : 'Error joining organization: ' + membershipError.message)
     } else {
       // Clear tour key so the welcome tour fires on first dashboard load
       localStorage.removeItem(TOUR_KEY)

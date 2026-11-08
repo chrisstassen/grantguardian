@@ -24,6 +24,7 @@ import {
   ShieldCheck,
   Crown,
 } from 'lucide-react'
+import { authFetch } from '@/lib/auth-fetch'
 
 interface OrgDetail {
   id: string
@@ -106,7 +107,7 @@ export default function AdminOrgDetailPage() {
 
     if (!profile?.is_system_admin) { router.push('/admin'); return }
 
-    const res = await fetch(`/api/admin/organizations/${orgId}`)
+    const res = await authFetch(`/api/admin/organizations/${orgId}`)
     if (!res.ok) { router.push('/admin/organizations'); return }
 
     const json = await res.json()
@@ -120,7 +121,7 @@ export default function AdminOrgDetailPage() {
   const handlePlanChange = async (newPlan: string) => {
     if (!org) return
     setSaving(true)
-    const res = await fetch(`/api/admin/organizations/${orgId}`, {
+    const res = await authFetch(`/api/admin/organizations/${orgId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ plan: newPlan }),
