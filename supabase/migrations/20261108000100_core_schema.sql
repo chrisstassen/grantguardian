@@ -3,7 +3,7 @@
 --
 -- Recreates every table the app uses after the Aug 2026 database loss.
 -- Columns are reconstructed from the application code; tables that previously
--- had their own migration files (now in migrations/_archive) are folded in here
+-- had their own migration files (now in docs/archive-sql) are folded in here
 -- with all of their later ALTERs applied.
 --
 -- Run order: this file, then _functions, _rls, _storage.
