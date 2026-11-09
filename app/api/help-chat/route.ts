@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { AI_MODEL_SMART } from '@/lib/ai-models'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
@@ -59,19 +60,36 @@ Response format:
 - Bold important terms or actions
 - Don't use excessive formatting`
 
+    // Claude expects the conversation to start with the user and to alternate
+    // roles. The widget's greeting ("Hi! I'm your assistant...") is an assistant
+    // message, so drop anything before the user's first message and merge any
+    // back-to-back messages from the same side.
+    const cleaned: { role: 'user' | 'assistant'; content: string }[] = []
+    for (const msg of Array.isArray(messages) ? messages : []) {
+      const role = msg?.role === 'assistant' ? 'assistant' : msg?.role === 'user' ? 'user' : null
+      const content = typeof msg?.content === 'string' ? msg.content.trim() : ''
+      if (!role || !content) continue
+      if (cleaned.length === 0 && role !== 'user') continue
+      const last = cleaned[cleaned.length - 1]
+      if (last && last.role === role) last.content += '\n\n' + content
+      else cleaned.push({ role, content })
+    }
+    if (cleaned.length === 0 || cleaned[cleaned.length - 1].role !== 'user') {
+      return NextResponse.json({ error: 'No question to answer' }, { status: 400 })
+    }
+
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: AI_MODEL_SMART,
       max_tokens: 1024,
       system: systemPrompt,
-      messages: messages.map((msg: any) => ({
-        role: msg.role,
-        content: msg.content
-      }))
+      messages: cleaned.slice(-20)   // keep the request small on long chats
     })
 
-    const assistantMessage = response.content[0].type === 'text'
-      ? response.content[0].text
-      : 'I apologize, but I encountered an error processing your request.'
+    const assistantMessage = response.content
+      .filter((block) => block.type === 'text')
+      .map((block) => (block as { text: string }).text)
+      .join('\n')
+      .trim() || 'I apologize, but I encountered an error processing your request.'
 
     return NextResponse.json({
       message: assistantMessage,
@@ -79,7 +97,8 @@ Response format:
     })
 
   } catch (error: any) {
-    console.error('Help chat error:', error)
+    // Shows up in Vercel's function logs with the real reason (bad model name, API key, etc.)
+    console.error('Help chat error:', error?.status, error?.message ?? error)
     return NextResponse.json(
       { error: 'Failed to get response from assistant' },
       { status: 500 }

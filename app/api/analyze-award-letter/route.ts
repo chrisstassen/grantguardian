@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { AI_MODEL_SMART } from '@/lib/ai-models'
 import { requireUser } from '@/lib/api-auth'
 
 export async function POST(request: NextRequest) {
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: AI_MODEL_SMART,
         max_tokens: 4096,
         messages: [
           {

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { AI_MODEL_FAST } from '@/lib/ai-models'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import Anthropic from '@anthropic-ai/sdk'
 
@@ -59,7 +60,7 @@ Return ONLY a JSON array (empty if no issues). Each item:
 
   try {
     const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
+      model: AI_MODEL_FAST,
       max_tokens: 800,
       messages: [{ role: 'user', content: prompt }]
     })

@@ -157,22 +157,28 @@ export function HelpChatWidget() {
         })
       })
 
-      const data = await response.json()
+      const data = await response.json().catch(() => ({}))
 
-      if (data.message) {
-        const assistantMessage = { role: 'assistant' as const, content: data.message }
-        setMessages([...newMessages, assistantMessage])
+      if (!response.ok || !data.message) {
+        const reply = data?.error === 'PLAN_LIMIT'
+          ? 'The AI assistant is available on the Pro plan. Ask your organization admin about upgrading.'
+          : "I'm sorry, I couldn't get an answer just now. Please try again in a moment, or create a support ticket if it keeps happening."
+        setMessages([...newMessages, { role: 'assistant', content: reply }])
+        return
+      }
 
-        // Save assistant message
-        if (convId) {
-          await supabase
-            .from('help_messages')
-            .insert([{
-              conversation_id: convId,
-              role: 'assistant',
-              content: data.message
-            }])
-        }
+      const assistantMessage = { role: 'assistant' as const, content: data.message }
+      setMessages([...newMessages, assistantMessage])
+
+      // Save assistant message
+      if (convId) {
+        await supabase
+          .from('help_messages')
+          .insert([{
+            conversation_id: convId,
+            role: 'assistant',
+            content: data.message
+          }])
       }
     } catch (error) {
       console.error('Chat error:', error)

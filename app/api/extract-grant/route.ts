@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { AI_MODEL_FAST } from '@/lib/ai-models'
 import { requireUser } from '@/lib/api-auth'
 import Anthropic from '@anthropic-ai/sdk'
 
@@ -12,7 +13,7 @@ export async function POST(request: NextRequest) {
     const { file_data, media_type } = await request.json()
 
     const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
+      model: AI_MODEL_FAST,
       max_tokens: 2048,
       messages: [
         {

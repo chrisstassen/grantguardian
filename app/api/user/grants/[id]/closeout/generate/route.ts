@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { AI_MODEL_FAST } from '@/lib/ai-models'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
 async function authorizeGrant(token: string | null, grantId: string) {
@@ -100,7 +101,7 @@ Example output format:
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: AI_MODEL_FAST,
         max_tokens: 2048,
         messages: [{ role: 'user', content: prompt }],
       }),
